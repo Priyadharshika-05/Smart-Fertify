@@ -1,0 +1,78 @@
+{
+  "holdout_accuracy": 0.7080645161290322,
+  "classification_report": {
+    "Balanced NPK Fertilizer": {
+      "precision": 0.7560975609756098,
+      "recall": 1.0,
+      "f1-score": 0.8611111111111112,
+      "support": 31.0
+    },
+    "Compost": {
+      "precision": 0.7346938775510204,
+      "recall": 0.96,
+      "f1-score": 0.8323699421965318,
+      "support": 75.0
+    },
+    "DAP": {
+      "precision": 0.7745664739884393,
+      "recall": 0.6350710900473934,
+      "f1-score": 0.6979166666666666,
+      "support": 211.0
+    },
+    "General Purpose Fertilizer": {
+      "precision": 0.6,
+      "recall": 1.0,
+      "f1-score": 0.75,
+      "support": 6.0
+    },
+    "Gypsum": {
+      "precision": 0.47058823529411764,
+      "recall": 0.7272727272727273,
+      "f1-score": 0.5714285714285714,
+      "support": 11.0
+    },
+    "Lime": {
+      "precision": 0.5135135135135135,
+      "recall": 0.5277777777777778,
+      "f1-score": 0.5205479452054794,
+      "support": 36.0
+    },
+    "Muriate of Potash": {
+      "precision": 0.5,
+      "recall": 0.2923076923076923,
+      "f1-score": 0.36893203883495146,
+      "support": 65.0
+    },
+    "Organic Fertilizer": {
+      "precision": 0.5862068965517241,
+      "recall": 0.8947368421052632,
+      "f1-score": 0.7083333333333334,
+      "support": 19.0
+    },
+    "Urea": {
+      "precision": 0.3076923076923077,
+      "recall": 0.12903225806451613,
+      "f1-score": 0.18181818181818182,
+      "support": 31.0
+    },
+    "Water Retaining Fertilizer": {
+      "precision": 0.7865853658536586,
+      "recall": 0.9555555555555556,
+      "f1-score": 0.862876254180602,
+      "support": 135.0
+    },
+    "accuracy": 0.7080645161290322,
+    "macro avg": {
+      "precision": 0.6029944231420391,
+      "recall": 0.7121753943130926,
+      "f1-score": 0.6355334044775429,
+      "support": 620.0
+    },
+    "weighted avg": {
+      "precision": 0.6912951052516791,
+      "recall": 0.7080645161290322,
+      "f1-score": 0.6862445498343752,
+      "support": 620.0
+    }
+  }
+}
