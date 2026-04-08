@@ -22,11 +22,5 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Kaggle (only needed for training, not production)
-backend/train.py
-backend/train_soil_condition.py
-backend/fx_ml.py
-*.kaggle
-
 # Keep model files — they ARE needed in production
-# backend/models/*.pkl  ← do NOT ignore these
+

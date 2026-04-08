@@ -3,17 +3,13 @@ services:
     name: smartfertify-backend
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt && python train.py && python train_soil_condition.py
+    buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: MONGO_URI
-        sync: false          # you paste this manually in Render dashboard
+        sync: false          # paste this manually in Render dashboard
       - key: JWT_SECRET
         generateValue: true  # Render auto-generates a secure random value
       - key: FERTILIZER_FRONTEND_DIR
         value: ..            # serves frontend files from project root
-      - key: KAGGLE_USERNAME
-        sync: false          # paste your Kaggle username in Render dashboard
-      - key: KAGGLE_KEY
-        sync: false          # paste your Kaggle API key in Render dashboard
     healthCheckPath: /api/health
