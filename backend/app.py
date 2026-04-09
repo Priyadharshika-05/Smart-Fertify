@@ -451,7 +451,7 @@ async def blynk_readings():
     async with httpx.AsyncClient(timeout=8) as client:
         for field, pin in BLYNK_PIN_MAP.items():
             try:
-                url = f"https://blynk.cloud/external/api/get?token={BLYNK_TOKEN}&{pin}"
+                url = f"https://blynk.cloud/external/api/get?token={BLYNK_TOKEN}&pin={pin}"
                 r = await client.get(url)
                 r.raise_for_status()
                 val = r.text.strip()
