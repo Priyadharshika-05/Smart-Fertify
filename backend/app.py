@@ -448,7 +448,7 @@ async def blynk_readings():
         raise HTTPException(503, "BLYNK_TOKEN not configured.")
 
     results: dict = {}
-    async with httpx.AsyncClient(timeout=8) as client:
+    async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
         for field, pin in BLYNK_PIN_MAP.items():
             try:
                 url = f"https://blynk.cloud/external/api/get?token={BLYNK_TOKEN}&pin={pin}"
