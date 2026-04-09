@@ -147,9 +147,9 @@ BLYNK_TOKEN = os.environ.get("BLYNK_TOKEN", "HD8tjeopbOjZb--7aS6sD-f74wkf5UDA")
 
 # Map field names to Blynk virtual pins — override via env vars if needed
 BLYNK_PIN_MAP = {
-    "temperature": os.environ.get("BLYNK_PIN_TEMP",     "V0"),
-    "moisture":    os.environ.get("BLYNK_PIN_MOISTURE",  "V1"),
-    "humidity":    os.environ.get("BLYNK_PIN_HUMIDITY",  "V2"),
+    "temperature": os.environ.get("BLYNK_PIN_TEMP",     "V1"),
+    "moisture":    os.environ.get("BLYNK_PIN_MOISTURE",  "V3"),
+    "humidity":    os.environ.get("BLYNK_PIN_HUMIDITY",  "V0"),
 }
 
 
