@@ -1,10 +1,11 @@
 """
-SmartFertify API v3.0
+SmartFertify API v3.1
 - FastAPI + MongoDB Atlas (motor async)
 - User auth (register / login / HMAC token)
 - Fertilizer price fetching from fert.nic.in (cached daily in MongoDB)
 - Analysis history stored per user in MongoDB
 - ML: RandomForest fertilizer classifier
+- Blynk IoT sensor proxy (v3.1)
 """
 
 from __future__ import annotations
@@ -140,6 +141,19 @@ ELEMENTAL_KG_PER_ACRE: dict[str, tuple[float, float, float]] = {
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# BLYNK IoT SENSOR PROXY
+# ─────────────────────────────────────────────────────────────────────────────
+BLYNK_TOKEN = os.environ.get("BLYNK_TOKEN", "HD8tjeopbOjZb--7aS6sD-f74wkf5UDA")
+
+# Map field names to Blynk virtual pins — override via env vars if needed
+BLYNK_PIN_MAP = {
+    "temperature": os.environ.get("BLYNK_PIN_TEMP",     "V0"),
+    "moisture":    os.environ.get("BLYNK_PIN_MOISTURE",  "V1"),
+    "humidity":    os.environ.get("BLYNK_PIN_HUMIDITY",  "V2"),
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # FERTILIZER PRICE FETCHER  (fert.nic.in — daily cache in MongoDB)
 # ─────────────────────────────────────────────────────────────────────────────
 GAZETTE_PRICES = {
@@ -166,17 +180,17 @@ async def _scrape_fert_prices() -> dict:
             )
             text = resp.text.lower()
 
-            m = re.search(r'urea[^₹\d]{0,60}([\d,]+\.?\d{0,2})\s*/?\s*(?:bag|45\s*kg)', text)
+            m = re.search(r'urea[^₹\d]{0,60}([\d,]+\.?\d{0,2})\s*/?\\s*(?:bag|45\s*kg)', text)
             if m:
                 prices["urea"]["price_per_bag"] = float(m.group(1).replace(",", ""))
                 prices["urea"]["source"] = "fert.nic.in (live scrape)"
 
-            m = re.search(r'dap[^₹\d]{0,60}([\d,]+\.?\d{0,2})\s*/?\s*(?:bag|50\s*kg)', text)
+            m = re.search(r'dap[^₹\d]{0,60}([\d,]+\.?\d{0,2})\s*/?\\s*(?:bag|50\s*kg)', text)
             if m:
                 prices["dap"]["price_per_bag"] = float(m.group(1).replace(",", ""))
                 prices["dap"]["source"] = "fert.nic.in (live scrape)"
 
-            m = re.search(r'mop[^₹\d]{0,60}([\d,]+\.?\d{0,2})\s*/?\s*(?:bag|50\s*kg)', text)
+            m = re.search(r'mop[^₹\d]{0,60}([\d,]+\.?\d{0,2})\s*/?\\s*(?:bag|50\s*kg)', text)
             if m:
                 prices["mop"]["price_per_bag"] = float(m.group(1).replace(",", ""))
                 prices["mop"]["source"] = "fert.nic.in (live scrape)"
@@ -349,7 +363,7 @@ class PredictResponse(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 # FASTAPI APP
 # ─────────────────────────────────────────────────────────────────────────────
-app = FastAPI(title="SmartFertify API", version="3.0.0")
+app = FastAPI(title="SmartFertify API", version="3.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
@@ -419,6 +433,36 @@ async def me(current_user=Depends(get_current_user)):
         "email":      user["email"],
         "created_at": str(user.get("created_at", "")),
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BLYNK IoT SENSOR PROXY ROUTE
+# ─────────────────────────────────────────────────────────────────────────────
+@api.get("/blynk-readings")
+async def blynk_readings():
+    """
+    Proxies Blynk IoT sensor data to avoid CORS issues from the browser.
+    Returns temperature, moisture, humidity from the configured virtual pins.
+    """
+    if not BLYNK_TOKEN:
+        raise HTTPException(503, "BLYNK_TOKEN not configured.")
+
+    results: dict = {}
+    async with httpx.AsyncClient(timeout=8) as client:
+        for field, pin in BLYNK_PIN_MAP.items():
+            try:
+                url = f"https://blynk.cloud/external/api/get?token={BLYNK_TOKEN}&{pin}"
+                r = await client.get(url)
+                r.raise_for_status()
+                val = r.text.strip()
+                results[field] = round(float(val), 2)
+            except Exception as e:
+                results[field] = None
+                results[f"{field}_error"] = str(e)
+
+    results["connected"] = all(results.get(k) is not None for k in BLYNK_PIN_MAP)
+    results["fetched_at"] = datetime.now(timezone.utc).isoformat()
+    return results
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -550,13 +594,15 @@ async def predict_npk(body: PredictRequest,
             "email":      current_user["email"],
             "created_at": datetime.now(timezone.utc),
             "inputs": {
-                "crop":          body.crop,
-                "soil_type":     body.soil_type,
-                "area_acres":    body.area_acres,
-                "temperature_c": body.temperature_c,
-                "water_level":   body.water_level,
-                "soil_condition":body.soil_condition,
-                "budget_inr":    body.budget_inr,
+                "crop":             body.crop,
+                "soil_type":        body.soil_type,
+                "area_acres":       body.area_acres,
+                "temperature_c":    body.temperature_c,
+                "water_level":      body.water_level,
+                "soil_condition":   body.soil_condition,
+                "budget_inr":       body.budget_inr,
+                "soil_moisture_pct": None,
+                "soil_humidity_pct": None,
             },
             "results": {
                 "fertilizer_recommended": fertilizer,

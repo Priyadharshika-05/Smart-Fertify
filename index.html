@@ -81,9 +81,19 @@
             </div>
         </section>
 
-        <!-- Live Sensor Strip at bottom of Home -->
+        <!-- ── Live Blynk Sensor Strip ──────────────────────────── -->
         <section class="sensor-strip container">
-            <p class="sensor-strip-label">Live Field Readings</p>
+            <!-- Header row with status indicator -->
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.6rem;">
+                <p class="sensor-strip-label" style="margin:0;">Live Field Readings</p>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <span id="blynkStatusDot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#555;transition:background 0.4s;"></span>
+                    <span id="blynkStatusText" style="font-family:var(--font-mono,monospace);font-size:0.72rem;color:#6b6a5c;">Connecting…</span>
+                    <span id="blynkLastFetchText" style="font-family:var(--font-mono,monospace);font-size:0.68rem;color:#4a4a42;margin-left:0.3rem;"></span>
+                </div>
+            </div>
+
+            <!-- Sensor cards -->
             <div class="sensor-strip-row">
                 <div class="sensor-strip-card">
                     <span class="sensor-strip-icon">🌡</span>
@@ -100,6 +110,36 @@
                     <div class="sensor-strip-val" id="homeHumid">--%</div>
                     <div class="sensor-strip-name">Humidity</div>
                 </div>
+            </div>
+
+            <!-- Use Live Readings CTA -->
+            <div style="text-align:center;margin-top:1.1rem;">
+                <button
+                    id="useLiveReadingsBtn"
+                    onclick="useLiveReadingsForAnalysis()"
+                    style="
+                        display:inline-flex;align-items:center;gap:0.5rem;
+                        background:rgba(74,124,89,0.18);
+                        border:1px solid rgba(74,124,89,0.45);
+                        color:#5e9a70;
+                        padding:0.55rem 1.4rem;
+                        border-radius:7px;
+                        font-family:var(--font-mono,monospace);
+                        font-size:0.82rem;
+                        font-weight:600;
+                        letter-spacing:0.04em;
+                        cursor:pointer;
+                        transition:all 0.2s;
+                    "
+                    onmouseover="this.style.background='rgba(74,124,89,0.30)'"
+                    onmouseout="this.style.background='rgba(74,124,89,0.18)'"
+                    disabled
+                >
+                    <span>📡</span> Use Live Readings for Analysis
+                </button>
+                <p id="useLiveHint" style="font-size:0.72rem;color:#4a4a42;font-family:var(--font-mono,monospace);margin-top:0.4rem;">
+                    Waiting for sensor data…
+                </p>
             </div>
         </section>
 
@@ -119,6 +159,32 @@
                 <button class="back-btn" onclick="showPage('home')">← Back</button>
                 <h2 class="page-title">Run Analysis</h2>
                 <p class="page-subtitle">Enter field parameters and get your precise fertilizer recommendation.</p>
+            </div>
+
+            <!-- Blynk Live Readings Banner (shown when connected) -->
+            <div id="analysisBlynkBanner" style="display:none;margin-bottom:1.2rem;padding:0.9rem 1.2rem;background:rgba(74,124,89,0.10);border:1px solid rgba(74,124,89,0.30);border-radius:8px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;">
+                    <div style="display:flex;align-items:center;gap:0.6rem;">
+                        <span id="analysisBannerDot" style="width:9px;height:9px;border-radius:50%;background:#4a7c59;display:inline-block;"></span>
+                        <span style="color:#5e9a70;font-family:var(--font-mono,monospace);font-size:0.8rem;font-weight:600;">Blynk IoT Connected</span>
+                        <span id="analysisBannerTime" style="color:#4a4a42;font-size:0.72rem;font-family:var(--font-mono,monospace);"></span>
+                    </div>
+                    <button type="button" onclick="refreshAndFillFromBlynk()"
+                        style="background:rgba(74,124,89,0.20);border:1px solid rgba(74,124,89,0.40);color:#5e9a70;padding:0.35rem 0.9rem;border-radius:5px;font-size:0.78rem;font-family:var(--font-mono,monospace);cursor:pointer;">
+                        ⟳ Refresh &amp; Fill
+                    </button>
+                </div>
+                <!-- Mini sensor pills -->
+                <div style="margin-top:0.7rem;display:flex;gap:0.5rem;flex-wrap:wrap;" id="analysisSensorPills">
+                    <span class="profile-pill">🌡 Temp: <span id="bannerTemp">--</span>°C</span>
+                    <span class="profile-pill">💧 Moisture: <span id="bannerMoist">--</span>%</span>
+                    <span class="profile-pill">🌫 Humidity: <span id="bannerHumid">--</span>%</span>
+                </div>
+            </div>
+
+            <!-- Blynk Error Banner -->
+            <div id="analysisBlynkError" style="display:none;margin-bottom:1rem;padding:0.7rem 1rem;background:rgba(224,128,128,0.10);border:1px solid rgba(224,128,128,0.25);border-radius:7px;color:#e08080;font-size:0.8rem;font-family:var(--font-mono,monospace);">
+                ⚠ IoT sensor offline. Enter values manually below.
             </div>
 
             <!-- Calculator Card -->
@@ -160,19 +226,27 @@
                         </div>
                         <div class="row">
                             <div class="col-md-4 mb-3">
-                                <label class="sf-label">Temperature (°C)</label>
+                                <label class="sf-label">
+                                    Temperature (°C)
+                                    <span id="tempIotBadge" style="display:none;font-size:0.65rem;background:rgba(74,124,89,0.2);color:#5e9a70;padding:1px 6px;border-radius:4px;margin-left:4px;font-family:var(--font-mono,monospace);">IoT</span>
+                                </label>
                                 <input type="number" class="sf-input" id="temperature" placeholder="e.g. 25" required>
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="sf-label">Soil Moisture (%)</label>
+                                <label class="sf-label">
+                                    Soil Moisture (%)
+                                    <span id="moistIotBadge" style="display:none;font-size:0.65rem;background:rgba(74,124,89,0.2);color:#5e9a70;padding:1px 6px;border-radius:4px;margin-left:4px;font-family:var(--font-mono,monospace);">IoT</span>
+                                </label>
                                 <input type="number" class="sf-input" id="soilMoisture" placeholder="e.g. 65" min="0" max="100" required>
                                 <div class="sf-hint">Enter value between 0–100</div>
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="sf-label">Soil Humidity (%)</label>
+                                <label class="sf-label">
+                                    Soil Humidity (%)
+                                    <span id="humidIotBadge" style="display:none;font-size:0.65rem;background:rgba(74,124,89,0.2);color:#5e9a70;padding:1px 6px;border-radius:4px;margin-left:4px;font-family:var(--font-mono,monospace);">IoT</span>
+                                </label>
                                 <input type="number" class="sf-input" id="soilHumidity" placeholder="e.g. 72" min="0" max="100" required>
                                 <div class="sf-hint">Air humidity over soil (0–100)</div>
-
                             </div>
                         </div>
                         <button type="submit" class="sf-submit-btn mt-2">Run Analysis →</button>
@@ -264,8 +338,6 @@
     </div>
 
 
-
-
     <!-- ══════════════════════════════════════════════════════
          PAGE 4 — PROFILE
     ══════════════════════════════════════════════════════ -->
@@ -348,11 +420,159 @@
 
     <script>
 
-    // ── Profile Page ────────────────────────────────────
-    function setupProfilePage() {
-        // Re-run whenever profile page becomes visible
+    // ════════════════════════════════════════════════════════
+    // BLYNK IoT INTEGRATION
+    // ════════════════════════════════════════════════════════
+    let _blynkLatest = null;          // last successful fetch payload
+    let _blynkPendingFill = false;    // flag: user clicked "Use Live Readings"
+
+    /**
+     * Fetches live sensor data from the backend Blynk proxy.
+     * Updates the home strip, analysis banner, and (if pending) fills the form.
+     */
+    async function fetchBlynkSensors(silent) {
+        try {
+            const resp = await fetch('/api/blynk-readings');
+            const data = await resp.json();
+
+            if (!resp.ok || !data.connected) {
+                _setBlynkOffline(data.temperature_error || data.moisture_error || data.humidity_error || 'Sensor offline');
+                return false;
+            }
+
+            _blynkLatest = data;
+            _setBlynkOnline(data);
+
+            // If user had clicked "Use Live Readings" before data arrived, fill now
+            if (_blynkPendingFill) {
+                _blynkPendingFill = false;
+                _fillAnalysisForm(data);
+            }
+
+            return true;
+        } catch (e) {
+            _setBlynkOffline('Network error');
+            return false;
+        }
     }
 
+    /** Updates home strip + status indicators with live data */
+    function _setBlynkOnline(data) {
+        // Status dot + text
+        const dot  = document.getElementById('blynkStatusDot');
+        const txt  = document.getElementById('blynkStatusText');
+        const last = document.getElementById('blynkLastFetchText');
+        if (dot)  { dot.style.background = '#4a7c59'; dot.style.boxShadow = '0 0 6px #4a7c5988'; }
+        if (txt)  txt.textContent = 'Blynk Connected';
+        if (last) last.textContent = '· ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+        // Home sensor strip values
+        const tempEl  = document.getElementById('homeTemp');
+        const moistEl = document.getElementById('homeMoist');
+        const humidEl = document.getElementById('homeHumid');
+        if (tempEl)  tempEl.textContent  = (data.temperature != null ? data.temperature.toFixed(1) : '--') + '°C';
+        if (moistEl) moistEl.textContent = (data.moisture    != null ? data.moisture.toFixed(1)    : '--') + '%';
+        if (humidEl) humidEl.textContent = (data.humidity    != null ? data.humidity.toFixed(1)    : '--') + '%';
+
+        // Enable "Use Live Readings" button
+        const liveBtn  = document.getElementById('useLiveReadingsBtn');
+        const liveHint = document.getElementById('useLiveHint');
+        if (liveBtn)  liveBtn.disabled = false;
+        if (liveHint) liveHint.textContent = 'Sensor data is live. Click to auto-fill the analysis form.';
+
+        // Analysis page banner
+        const banner = document.getElementById('analysisBlynkBanner');
+        const errBanner = document.getElementById('analysisBlynkError');
+        if (banner) banner.style.display = 'block';
+        if (errBanner) errBanner.style.display = 'none';
+
+        const bannerDot  = document.getElementById('analysisBannerDot');
+        const bannerTime = document.getElementById('analysisBannerTime');
+        if (bannerDot)  bannerDot.style.background = '#4a7c59';
+        if (bannerTime) bannerTime.textContent = '· ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+        const bTemp  = document.getElementById('bannerTemp');
+        const bMoist = document.getElementById('bannerMoist');
+        const bHumid = document.getElementById('bannerHumid');
+        if (bTemp)  bTemp.textContent  = data.temperature != null ? data.temperature.toFixed(1) : '--';
+        if (bMoist) bMoist.textContent = data.moisture    != null ? data.moisture.toFixed(1)    : '--';
+        if (bHumid) bHumid.textContent = data.humidity    != null ? data.humidity.toFixed(1)    : '--';
+    }
+
+    /** Shows offline state across all Blynk UI */
+    function _setBlynkOffline(reason) {
+        const dot  = document.getElementById('blynkStatusDot');
+        const txt  = document.getElementById('blynkStatusText');
+        const last = document.getElementById('blynkLastFetchText');
+        if (dot)  { dot.style.background = '#e08080'; dot.style.boxShadow = 'none'; }
+        if (txt)  txt.textContent = 'Sensor Offline';
+        if (last) last.textContent = '';
+
+        const liveBtn  = document.getElementById('useLiveReadingsBtn');
+        const liveHint = document.getElementById('useLiveHint');
+        if (liveBtn)  liveBtn.disabled = true;
+        if (liveHint) { liveHint.textContent = 'IoT sensor not reachable. Enter values manually.'; liveHint.style.color = '#e08080'; }
+
+        const banner    = document.getElementById('analysisBlynkBanner');
+        const errBanner = document.getElementById('analysisBlynkError');
+        if (banner)    banner.style.display = 'none';
+        if (errBanner) errBanner.style.display = 'block';
+    }
+
+    /**
+     * Fills the three sensor inputs on the Analysis page with IoT data.
+     * Shows "IoT" badge next to each filled label.
+     */
+    function _fillAnalysisForm(data) {
+        const tempEl  = document.getElementById('temperature');
+        const moistEl = document.getElementById('soilMoisture');
+        const humidEl = document.getElementById('soilHumidity');
+
+        if (tempEl  && data.temperature != null) { tempEl.value  = data.temperature.toFixed(1); _flashInput(tempEl); _showIotBadge('tempIotBadge'); }
+        if (moistEl && data.moisture    != null) { moistEl.value = data.moisture.toFixed(1);    _flashInput(moistEl); _showIotBadge('moistIotBadge'); }
+        if (humidEl && data.humidity    != null) { humidEl.value = data.humidity.toFixed(1);    _flashInput(humidEl); _showIotBadge('humidIotBadge'); }
+    }
+
+    function _flashInput(el) {
+        el.style.transition = 'border-color 0.3s, box-shadow 0.3s';
+        el.style.borderColor = 'rgba(74,124,89,0.8)';
+        el.style.boxShadow   = '0 0 0 3px rgba(74,124,89,0.15)';
+        setTimeout(() => { el.style.borderColor = ''; el.style.boxShadow = ''; }, 1800);
+    }
+
+    function _showIotBadge(id) {
+        const b = document.getElementById(id);
+        if (b) b.style.display = 'inline';
+    }
+
+    /**
+     * Called by "Use Live Readings for Analysis" button on home page.
+     * If data is ready → navigate + fill. Otherwise → navigate + set pending flag.
+     */
+    function useLiveReadingsForAnalysis() {
+        showPage('analysis');
+        if (_blynkLatest && _blynkLatest.connected) {
+            _fillAnalysisForm(_blynkLatest);
+        } else {
+            _blynkPendingFill = true;
+            fetchBlynkSensors(false);
+        }
+    }
+
+    /**
+     * "Refresh & Fill" button on the analysis page banner.
+     */
+    async function refreshAndFillFromBlynk() {
+        const btn = document.querySelector('#analysisBlynkBanner button');
+        if (btn) { btn.textContent = '⟳ Fetching…'; btn.disabled = true; }
+        const ok = await fetchBlynkSensors(false);
+        if (ok && _blynkLatest) _fillAnalysisForm(_blynkLatest);
+        if (btn) { btn.textContent = '⟳ Refresh & Fill'; btn.disabled = false; }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // PAGE ROUTING
+    // ════════════════════════════════════════════════════════
     function showPage(id) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.float-nav-btn').forEach(b => b.classList.remove('active'));
@@ -360,23 +580,34 @@
         const btn = document.querySelector(`.float-nav-btn[data-target="${id}"]`);
         if (btn) btn.classList.add('active');
         window.scrollTo(0, 0);
-        if (id === 'profile') loadProfilePage();
+        if (id === 'profile')  loadProfilePage();
+        if (id === 'analysis') _syncAnalysisBanner();
     }
 
+    /** Keep analysis banner in sync when navigating to that page */
+    function _syncAnalysisBanner() {
+        if (_blynkLatest && _blynkLatest.connected) {
+            _setBlynkOnline(_blynkLatest);
+        } else {
+            fetchBlynkSensors(true);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // PROFILE PAGE
+    // ════════════════════════════════════════════════════════
     async function loadProfilePage() {
         const loggedIn = typeof isLoggedIn === 'function' && isLoggedIn();
         document.getElementById('profileLoginPrompt').style.display = loggedIn ? 'none'  : 'block';
         document.getElementById('profileContent').style.display     = loggedIn ? 'block' : 'none';
         if (!loggedIn) return;
 
-        // Fill name/email instantly from localStorage
         const uname = (typeof getUsername === 'function' && getUsername()) || '—';
         const email  = (typeof getEmail    === 'function' && getEmail())    || '—';
         document.getElementById('profileName').textContent  = uname;
         document.getElementById('profileEmail').textContent = email;
         document.getElementById('profileAvatar').textContent = uname.charAt(0).toUpperCase();
 
-        // Fetch joined date
         try {
             const tok  = typeof getToken === 'function' ? getToken() : null;
             const resp = await fetch('/api/auth/me', { headers: tok ? { 'Authorization': 'Bearer ' + tok } : {} });
@@ -390,18 +621,17 @@
             }
         } catch(_) {}
 
-        // Load history
         const container = document.getElementById('profileHistoryContainer');
         container.innerHTML = '<div class="profile-loading"><div class="profile-spinner"></div><div>Loading…</div></div>';
         const items = typeof fetchHistory === 'function' ? await fetchHistory() : [];
         renderProfileHistory(items, container);
     }
 
-    // ── bag/cost computation (mirrors analysis page logic) ──────────────────
+    // ── bag/cost computation ─────────────────────────────────
     function _computeAgroBags(nKg, pKg, kKg) {
-        const N_PER_UREA = 50 * 0.46;   // 23 kg N per bag
-        const P_PER_DAP  = 50 * 0.18;   //  9 kg P per bag
-        const K_PER_MOP  = 50 * 0.60;   // 30 kg K per bag
+        const N_PER_UREA = 50 * 0.46;
+        const P_PER_DAP  = 50 * 0.18;
+        const K_PER_MOP  = 50 * 0.60;
         const ureaBags = nKg / N_PER_UREA;
         const dapBags  = pKg / P_PER_DAP;
         const mopBags  = kKg / K_PER_MOP;
@@ -440,7 +670,6 @@
             return;
         }
 
-        // Stats
         const cropCounts = {}, fertCounts = {};
         items.forEach(item => {
             const c = item.inputs?.crop || 'unknown';
@@ -461,7 +690,7 @@
                     + ' ' + d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
             } catch { return iso || '—'; }
         };
-        const fmt2 = v => (v != null && !isNaN(v)) ? Number(v).toFixed(2) : '—';
+        const fmt2   = v => (v != null && !isNaN(v)) ? Number(v).toFixed(2) : '—';
         const fmtINR = v => (v != null && !isNaN(v)) ? '₹' + Number(v).toLocaleString('en-IN',{maximumFractionDigits:0}) : '—';
 
         container.innerHTML = items.map(item => {
@@ -470,20 +699,12 @@
             const nKg = Number(res.nitrogen_kg   || 0);
             const pKg = Number(res.phosphorus_kg || 0);
             const kKg = Number(res.potassium_kg  || 0);
-
-            // Always compute agro bags from NPK (reliable even if not stored in DB)
-            const ag = _computeAgroBags(nKg, pKg, kKg);
-
-            // Confidence
+            const ag  = _computeAgroBags(nKg, pKg, kKg);
             const conf = res.confidence ? (res.confidence * 100).toFixed(0) + '%' : '—';
-
-            // Budget plan — compute if budget was provided
             const budgetVal = Number(inp.budget_inr || 0);
             const hasBudget = budgetVal > 0;
             const bp = hasBudget ? _computeBudgetBags(nKg, pKg, kKg, budgetVal) : null;
             const barColor = bp ? (bp.coverage >= 99 ? '#4a7c59' : bp.coverage >= 70 ? '#cca878' : '#e08080') : '';
-
-            // Moisture / humidity display
             const moistureDisplay = inp.soil_moisture_pct != null
                 ? inp.soil_moisture_pct + '%'
                 : (inp.water_level ? inp.water_level.charAt(0).toUpperCase()+inp.water_level.slice(1) : '—');
@@ -493,14 +714,10 @@
 
             return `
             <div class="profile-history-item" id="hitem-${item._id}">
-
-                <!-- Row 1: fertilizer name + date -->
                 <div class="profile-history-top">
                     <div class="profile-history-fert">🌿 ${res.fertilizer_recommended || '—'}</div>
                     <div class="profile-history-date">${fmtDate(item.created_at)}</div>
                 </div>
-
-                <!-- Row 2: input pills -->
                 <div class="profile-history-pills">
                     <span class="profile-pill">Crop: <span>${(inp.crop||'—').charAt(0).toUpperCase()+(inp.crop||'').slice(1)}</span></span>
                     <span class="profile-pill">Soil: <span>${(inp.soil_type||'—').charAt(0).toUpperCase()+(inp.soil_type||'').slice(1)}</span></span>
@@ -511,27 +728,11 @@
                     <span class="profile-pill">Confidence: <span>${conf}</span></span>
                     ${hasBudget ? `<span class="profile-pill">Budget: <span>₹${budgetVal.toLocaleString('en-IN')}</span></span>` : ''}
                 </div>
-
-                <!-- Row 3: NPK values -->
                 <div class="profile-npk-row">
-                    <div class="profile-npk-mini">
-                        <div class="profile-npk-label">Nitrogen</div>
-                        <div class="profile-npk-val">${nKg.toFixed(1)}</div>
-                        <div class="profile-npk-unit">kg N</div>
-                    </div>
-                    <div class="profile-npk-mini">
-                        <div class="profile-npk-label">Phosphorus</div>
-                        <div class="profile-npk-val">${pKg.toFixed(1)}</div>
-                        <div class="profile-npk-unit">kg P</div>
-                    </div>
-                    <div class="profile-npk-mini">
-                        <div class="profile-npk-label">Potassium</div>
-                        <div class="profile-npk-val">${kKg.toFixed(1)}</div>
-                        <div class="profile-npk-unit">kg K</div>
-                    </div>
+                    <div class="profile-npk-mini"><div class="profile-npk-label">Nitrogen</div><div class="profile-npk-val">${nKg.toFixed(1)}</div><div class="profile-npk-unit">kg N</div></div>
+                    <div class="profile-npk-mini"><div class="profile-npk-label">Phosphorus</div><div class="profile-npk-val">${pKg.toFixed(1)}</div><div class="profile-npk-unit">kg P</div></div>
+                    <div class="profile-npk-mini"><div class="profile-npk-label">Potassium</div><div class="profile-npk-val">${kKg.toFixed(1)}</div><div class="profile-npk-unit">kg K</div></div>
                 </div>
-
-                <!-- Row 4: Agronomic bag counts — always computed from NPK -->
                 <div class="profile-section-label">Agronomic requirement</div>
                 <div class="profile-bag-row">
                     <span class="profile-bag-pill">🟡 Urea: <strong>${fmt2(ag.ureaBags)} bags</strong></span>
@@ -539,8 +740,6 @@
                     <span class="profile-bag-pill">🔴 MOP: <strong>${fmt2(ag.mopBags)} bags</strong></span>
                     <span class="profile-bag-pill">Total cost: <strong>${fmtINR(ag.total)}</strong></span>
                 </div>
-
-                <!-- Row 5: Budget plan (only if budget was provided) -->
                 ${hasBudget && bp ? `
                 <div class="profile-section-label" style="margin-top:0.75rem;">Budget plan · ₹${budgetVal.toLocaleString('en-IN')}</div>
                 <div class="profile-bag-row">
@@ -556,17 +755,14 @@
                 <div style="font-size:0.72rem;color:${barColor};margin-top:0.25rem;font-family:var(--font-mono);">
                     Coverage: ${bp.coverage.toFixed(1)}% of agronomic need
                 </div>` : ''}
-
-                <!-- Row 6: Delete -->
                 <div style="margin-top:1rem;display:flex;justify-content:flex-end;">
                     <button class="profile-delete-btn" onclick="handleProfileDelete('${item._id}')">✕ Delete record</button>
                 </div>
-
             </div>`;
         }).join('');
     }
 
-        async function handleProfileDelete(id) {
+    async function handleProfileDelete(id) {
         if (!confirm('Delete this analysis record?')) return;
         const ok = typeof deleteHistoryItem === 'function' ? await deleteHistoryItem(id) : false;
         if (ok) {
@@ -585,16 +781,12 @@
         window.location.href = 'auth.html';
     }
 
-
-
-    // ── Nav Auth Area — inject login chip or logout only (no profile link) ──
-    // This overrides whatever auth.js injects, ensuring only chip+logout appear
+    // ── Nav Auth Area ────────────────────────────────────────
     function updateNavAuth() {
         const area = document.getElementById('authNavArea');
         if (!area) return;
         const loggedIn = typeof isLoggedIn === 'function' && isLoggedIn();
         const profileBtn = document.getElementById('profileNavBtn');
-
         if (loggedIn) {
             const uname = (typeof getUsername === 'function' && getUsername()) || 'User';
             area.innerHTML = `
@@ -604,35 +796,13 @@
             if (profileBtn) profileBtn.style.display = '';
         } else {
             area.innerHTML = `<a class="nav-login-btn" href="auth.html">Login / Register</a>`;
-            if (profileBtn) profileBtn.style.display = '';  // always show; page handles prompt
+            if (profileBtn) profileBtn.style.display = '';
         }
     }
 
-    // ── Dashboard Init ──────────────────────────────────
-    document.addEventListener('DOMContentLoaded', function() {
-        updateSoilTypeOptions();
-        populateCountryDropdown();
-        setupWeatherSearch();
-        startHomeSensors();
-        setupFertilizerForm();
-        updateNavAuth();
-        setupProfilePage();
-        const gotoPage = sessionStorage.getItem('gotoPage');
-        if (gotoPage) { sessionStorage.removeItem('gotoPage'); showPage(gotoPage); }
-    });
-
-    // ── Home sensor strip live update ───────────────────
-    function startHomeSensors() {
-        function update() {
-            document.getElementById('homeTemp').textContent  = (Math.random()*10+20).toFixed(1) + '°C';
-            document.getElementById('homeMoist').textContent = (Math.random()*30+50).toFixed(1) + '%';
-            document.getElementById('homeHumid').textContent = (Math.random()*20+60).toFixed(1) + '%';
-        }
-        update();
-        setInterval(update, 5000);
-    }
-
-    // ── Fertilizer Form with new numerical inputs ───────
+    // ════════════════════════════════════════════════════════
+    // FERTILIZER FORM SUBMIT
+    // ════════════════════════════════════════════════════════
     function setupFertilizerForm() {
         const form = document.getElementById('fertilizerForm');
         if (!form) return;
@@ -645,13 +815,11 @@
             const soilMoisturePct = parseFloat(document.getElementById('soilMoisture').value);
             const soilHumidityPct = parseFloat(document.getElementById('soilHumidity').value);
 
-            // Map numerical soil moisture → water_level category for backend
             let waterLevel;
             if (soilMoisturePct < 40)      waterLevel = 'low';
             else if (soilMoisturePct < 75)  waterLevel = 'medium';
             else                             waterLevel = 'high';
 
-            // Map numerical soil humidity → soil_condition category for backend
             let soilCondition;
             if (soilHumidityPct < 30)       soilCondition = 'poor';
             else if (soilHumidityPct < 55)  soilCondition = 'fair';
@@ -694,69 +862,33 @@
         });
     }
 
-    // ─────────────────────────────────────────────────────────
-    // Client-side budget calculator (mirrors backend logic)
-    // Prices: Urea ₹266/50kg bag (46%N), DAP ₹1350/50kg bag (18%P),
-    //         MOP ₹1700/50kg bag (60%K)
-    // ─────────────────────────────────────────────────────────
+    // ── Client-side budget calculator ────────────────────────
     function computeBudgetPlan(nNeed, pNeed, kNeed, budget) {
         let remaining = budget;
-
-        // Urea → N
-        const N_PER_UREA_BAG  = 50 * 0.46;   // 23 kg N per bag
-        const UREA_PRICE      = 266;
-        const bagsNeededUrea  = nNeed / N_PER_UREA_BAG;
-        let ureaBags, ureaCost;
-        if (bagsNeededUrea * UREA_PRICE <= remaining) {
-            ureaBags = bagsNeededUrea; ureaCost = ureaBags * UREA_PRICE; remaining -= ureaCost;
-        } else {
-            ureaBags = remaining / UREA_PRICE; ureaCost = ureaBags * UREA_PRICE; remaining = 0;
-        }
-
-        // DAP → P
-        const P_PER_DAP_BAG   = 50 * 0.18;   // 9 kg P per bag
-        const DAP_PRICE       = 1350;
-        const bagsNeededDap   = pNeed / P_PER_DAP_BAG;
-        let dapBags, dapCost;
-        if (bagsNeededDap * DAP_PRICE <= remaining) {
-            dapBags = bagsNeededDap; dapCost = dapBags * DAP_PRICE; remaining -= dapCost;
-        } else {
-            dapBags = remaining / DAP_PRICE; dapCost = dapBags * DAP_PRICE; remaining = 0;
-        }
-
-        // MOP → K
-        const K_PER_MOP_BAG   = 50 * 0.60;   // 30 kg K per bag
-        const MOP_PRICE       = 1700;
-        const bagsNeededMop   = kNeed / K_PER_MOP_BAG;
-        let mopBags, mopCost;
-        if (bagsNeededMop * MOP_PRICE <= remaining) {
-            mopBags = bagsNeededMop; mopCost = mopBags * MOP_PRICE; remaining -= mopCost;
-        } else {
-            mopBags = remaining / MOP_PRICE; mopCost = mopBags * MOP_PRICE; remaining = 0;
-        }
-
-        const actualN     = ureaBags * N_PER_UREA_BAG;
-        const actualP     = dapBags  * P_PER_DAP_BAG;
-        const actualK     = mopBags  * K_PER_MOP_BAG;
+        const N_PER_UREA_BAG = 50 * 0.46, UREA_PRICE = 266;
+        const P_PER_DAP_BAG  = 50 * 0.18, DAP_PRICE  = 1350;
+        const K_PER_MOP_BAG  = 50 * 0.60, MOP_PRICE  = 1700;
+        let ureaBags, ureaCost, dapBags, dapCost, mopBags, mopCost;
+        const bagsU = nNeed / N_PER_UREA_BAG;
+        if (bagsU * UREA_PRICE <= remaining) { ureaBags = bagsU; ureaCost = bagsU * UREA_PRICE; remaining -= ureaCost; }
+        else { ureaBags = remaining / UREA_PRICE; ureaCost = ureaBags * UREA_PRICE; remaining = 0; }
+        const bagsD = pNeed / P_PER_DAP_BAG;
+        if (bagsD * DAP_PRICE <= remaining)  { dapBags = bagsD; dapCost = bagsD * DAP_PRICE; remaining -= dapCost; }
+        else { dapBags = remaining / DAP_PRICE; dapCost = dapBags * DAP_PRICE; remaining = 0; }
+        const bagsM = kNeed / K_PER_MOP_BAG;
+        if (bagsM * MOP_PRICE <= remaining)  { mopBags = bagsM; mopCost = bagsM * MOP_PRICE; remaining -= mopCost; }
+        else { mopBags = remaining / MOP_PRICE; mopCost = mopBags * MOP_PRICE; remaining = 0; }
         const totalNeed   = nNeed + pNeed + kNeed;
-        const totalActual = actualN + actualP + actualK;
+        const totalActual = ureaBags * N_PER_UREA_BAG + dapBags * P_PER_DAP_BAG + mopBags * K_PER_MOP_BAG;
         const coverage    = totalNeed > 0 ? (totalActual / totalNeed * 100) : 100;
         const totalCost   = ureaCost + dapCost + mopCost;
-
         let note, noteClass;
-        if (coverage >= 99) {
-            note = '✅ Your budget fully covers the agronomic fertilizer requirement.';
-            noteClass = 'ok';
-        } else if (coverage >= 70) {
-            note = `⚠️ Budget covers ${coverage.toFixed(0)}% of agronomic need. Consider increasing budget for full coverage.`;
-            noteClass = 'warning';
-        } else {
-            note = `❌ Budget only covers ${coverage.toFixed(0)}% of agronomic need. Significant shortfall — Nitrogen (Urea) is prioritised first.`;
-            noteClass = 'danger';
-        }
-
+        if (coverage >= 99)      { note = '✅ Your budget fully covers the agronomic fertilizer requirement.'; noteClass = 'ok'; }
+        else if (coverage >= 70) { note = `⚠️ Budget covers ${coverage.toFixed(0)}% of agronomic need. Consider increasing budget for full coverage.`; noteClass = 'warning'; }
+        else                     { note = `❌ Budget only covers ${coverage.toFixed(0)}% of agronomic need. Significant shortfall.`; noteClass = 'danger'; }
         return { ureaBags, ureaCost, dapBags, dapCost, mopBags, mopCost,
-                 actualN, actualP, actualK, totalCost, remaining, coverage, note, noteClass };
+                 actualN: ureaBags*N_PER_UREA_BAG, actualP: dapBags*P_PER_DAP_BAG, actualK: mopBags*K_PER_MOP_BAG,
+                 totalCost, remaining, coverage, note, noteClass };
     }
 
     function renderResults(d, moistPct, humidPct, budgetVal) {
@@ -765,29 +897,17 @@
         const budgetCard      = document.getElementById('budgetCard');
         const budgetContainer = document.getElementById('budgetResults');
 
-        // ── Confidence colour ───────────────────────────────────
         const conf      = Math.round((d.confidence || 0) * 100);
         const confColor = conf >= 80 ? '#4a7c59' : conf >= 60 ? '#cca878' : '#e08080';
-
-        // ── Compatibility banner ────────────────────────────────
         let compatHTML = '';
         if (d.soil_compatibility_status === 'warning') {
             compatHTML = `<div class="compat-warning mb-3">⚠ ${d.soil_compatibility_message}</div>`;
         }
-
-        // ══════════════════════════════════════════════════════
-        // CARD 1 — Agronomic Requirement (ML result)
-        // ══════════════════════════════════════════════════════
-        // ── Full-cost calculation for agronomic need ───────────
-        const N_PER_UREA = 50 * 0.46;  // 23 kg N per bag
-        const P_PER_DAP  = 50 * 0.18;  // 9 kg P per bag
-        const K_PER_MOP  = 50 * 0.60;  // 30 kg K per bag
+        const N_PER_UREA = 50 * 0.46, P_PER_DAP = 50 * 0.18, K_PER_MOP = 50 * 0.60;
         const agUreaBags = (d.nitrogen_kg  || 0) / N_PER_UREA;
         const agDapBags  = (d.phosphorus_kg|| 0) / P_PER_DAP;
         const agMopBags  = (d.potassium_kg || 0) / K_PER_MOP;
-        const agUreaCost = agUreaBags * 266;
-        const agDapCost  = agDapBags  * 1350;
-        const agMopCost  = agMopBags  * 1700;
+        const agUreaCost = agUreaBags * 266, agDapCost = agDapBags * 1350, agMopCost = agMopBags * 1700;
         const agTotal    = agUreaCost + agDapCost + agMopCost;
 
         agContainer.innerHTML = `
@@ -795,71 +915,24 @@
             <div class="result-hero">
                 <div class="result-hero-label">Recommended Fertilizer</div>
                 <div class="result-hero-name">${d.fertilizer_recommended || '—'}</div>
-                <div class="result-confidence">
-                    Model confidence: <span style="color:${confColor}">${conf}%</span>
-                </div>
+                <div class="result-confidence">Model confidence: <span style="color:${confColor}">${conf}%</span></div>
             </div>
-            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.8rem;">
-                The exact N–P–K your soil requires for this crop and field size — independent of budget.
-            </p>
+            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.8rem;">The exact N–P–K your soil requires for this crop and field size.</p>
             <div class="npk-grid">
-                <div class="npk-card">
-                    <div class="npk-element">Nitrogen (N)</div>
-                    <div class="npk-value">${(d.nitrogen_kg || 0).toFixed(1)}</div>
-                    <div class="npk-unit">kg needed</div>
-                </div>
-                <div class="npk-card">
-                    <div class="npk-element">Phosphorus (P)</div>
-                    <div class="npk-value">${(d.phosphorus_kg || 0).toFixed(1)}</div>
-                    <div class="npk-unit">kg needed</div>
-                </div>
-                <div class="npk-card">
-                    <div class="npk-element">Potassium (K)</div>
-                    <div class="npk-value">${(d.potassium_kg || 0).toFixed(1)}</div>
-                    <div class="npk-unit">kg needed</div>
-                </div>
+                <div class="npk-card"><div class="npk-element">Nitrogen (N)</div><div class="npk-value">${(d.nitrogen_kg||0).toFixed(1)}</div><div class="npk-unit">kg needed</div></div>
+                <div class="npk-card"><div class="npk-element">Phosphorus (P)</div><div class="npk-value">${(d.phosphorus_kg||0).toFixed(1)}</div><div class="npk-unit">kg needed</div></div>
+                <div class="npk-card"><div class="npk-element">Potassium (K)</div><div class="npk-value">${(d.potassium_kg||0).toFixed(1)}</div><div class="npk-unit">kg needed</div></div>
             </div>
-
-            <p style="font-size:0.78rem;color:var(--text-muted);margin:1rem 0 0.4rem;">
-                Full cost to meet this agronomic requirement (at Indian retail prices):
-            </p>
+            <p style="font-size:0.78rem;color:var(--text-muted);margin:1rem 0 0.4rem;">Full cost to meet this agronomic requirement:</p>
             <table class="budget-table">
-                <thead>
-                    <tr>
-                        <th>Fertilizer</th>
-                        <th>Bags Required</th>
-                        <th>Nutrient</th>
-                        <th>Cost (₹)</th>
-                    </tr>
-                </thead>
+                <thead><tr><th>Fertilizer</th><th>Bags Required</th><th>Nutrient</th><th>Cost (₹)</th></tr></thead>
                 <tbody>
-                    <tr>
-                        <td>🟡 Urea <span style="font-size:0.72rem;color:var(--text-muted)">(46% N · ₹266/bag)</span></td>
-                        <td class="val">${agUreaBags.toFixed(2)}</td>
-                        <td class="val">${(d.nitrogen_kg||0).toFixed(1)} kg N</td>
-                        <td class="val">₹${agUreaCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-                    </tr>
-                    <tr>
-                        <td>🟤 DAP <span style="font-size:0.72rem;color:var(--text-muted)">(18% P · ₹1350/bag)</span></td>
-                        <td class="val">${agDapBags.toFixed(2)}</td>
-                        <td class="val">${(d.phosphorus_kg||0).toFixed(1)} kg P</td>
-                        <td class="val">₹${agDapCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-                    </tr>
-                    <tr>
-                        <td>🔴 MOP <span style="font-size:0.72rem;color:var(--text-muted)">(60% K · ₹1700/bag)</span></td>
-                        <td class="val">${agMopBags.toFixed(2)}</td>
-                        <td class="val">${(d.potassium_kg||0).toFixed(1)} kg K</td>
-                        <td class="val">₹${agMopCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-                    </tr>
-                    <tr style="border-top:1px solid var(--accent-border);">
-                        <td style="color:var(--linen);font-weight:600;">Total Required</td>
-                        <td>—</td>
-                        <td>—</td>
-                        <td class="val" style="color:var(--linen);font-size:1rem;">₹${agTotal.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-                    </tr>
+                    <tr><td>🟡 Urea <span style="font-size:0.72rem;color:var(--text-muted)">(46% N · ₹266/bag)</span></td><td class="val">${agUreaBags.toFixed(2)}</td><td class="val">${(d.nitrogen_kg||0).toFixed(1)} kg N</td><td class="val">₹${agUreaCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
+                    <tr><td>🟤 DAP <span style="font-size:0.72rem;color:var(--text-muted)">(18% P · ₹1350/bag)</span></td><td class="val">${agDapBags.toFixed(2)}</td><td class="val">${(d.phosphorus_kg||0).toFixed(1)} kg P</td><td class="val">₹${agDapCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
+                    <tr><td>🔴 MOP <span style="font-size:0.72rem;color:var(--text-muted)">(60% K · ₹1700/bag)</span></td><td class="val">${agMopBags.toFixed(2)}</td><td class="val">${(d.potassium_kg||0).toFixed(1)} kg K</td><td class="val">₹${agMopCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
+                    <tr style="border-top:1px solid var(--accent-border);"><td style="color:var(--linen);font-weight:600;">Total Required</td><td>—</td><td>—</td><td class="val" style="color:var(--linen);font-size:1rem;">₹${agTotal.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
                 </tbody>
             </table>
-
             <div class="result-meta-row" style="margin-top:1rem;">
                 <span class="result-meta-pill">Model: <span>${d.model || 'RF'}</span></span>
                 <span class="result-meta-pill">Accuracy: <span>${d.holdout_accuracy ? (d.holdout_accuracy*100).toFixed(1)+'%' : 'N/A'}</span></span>
@@ -870,75 +943,29 @@
             <div class="result-note">${d.note || ''}</div>
         `;
 
-        // ══════════════════════════════════════════════════════
-        // CARD 2 — Budget Plan (always shown when budget > 0)
-        // ══════════════════════════════════════════════════════
         if (budgetVal && budgetVal > 0) {
             budgetCard.style.display = 'block';
-
-            const b        = computeBudgetPlan(d.nitrogen_kg || 0, d.phosphorus_kg || 0, d.potassium_kg || 0, budgetVal);
+            const b        = computeBudgetPlan(d.nitrogen_kg||0, d.phosphorus_kg||0, d.potassium_kg||0, budgetVal);
             const barColor = b.coverage >= 99 ? '#4a7c59' : b.coverage >= 70 ? '#cca878' : '#e08080';
-
             budgetContainer.innerHTML = `
                 <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;">
-                    How to spend <strong style="color:var(--linen)">₹${budgetVal.toLocaleString('en-IN')}</strong>
-                    on Urea, DAP &amp; MOP to cover as much of the agronomic need as possible.
-                    Priority: Nitrogen → Phosphorus → Potassium.
+                    How to spend <strong style="color:var(--linen)">₹${budgetVal.toLocaleString('en-IN')}</strong> to cover as much of the agronomic need as possible.
                 </p>
-
                 <table class="budget-table">
-                    <thead>
-                        <tr>
-                            <th>Fertilizer</th>
-                            <th>Bags to Buy</th>
-                            <th>Nutrient Delivered</th>
-                            <th>Cost (₹)</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Fertilizer</th><th>Bags to Buy</th><th>Nutrient Delivered</th><th>Cost (₹)</th></tr></thead>
                     <tbody>
-                        <tr>
-                            <td>🟡 Urea <span style="font-size:0.72rem;color:var(--text-muted)">(46% N · ₹266/bag)</span></td>
-                            <td class="val">${b.ureaBags.toFixed(2)}</td>
-                            <td class="val">${b.actualN.toFixed(1)} kg N</td>
-                            <td class="val">₹${b.ureaCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-                        </tr>
-                        <tr>
-                            <td>🟤 DAP <span style="font-size:0.72rem;color:var(--text-muted)">(18% P · ₹1350/bag)</span></td>
-                            <td class="val">${b.dapBags.toFixed(2)}</td>
-                            <td class="val">${b.actualP.toFixed(1)} kg P</td>
-                            <td class="val">₹${b.dapCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-                        </tr>
-                        <tr>
-                            <td>🔴 MOP <span style="font-size:0.72rem;color:var(--text-muted)">(60% K · ₹1700/bag)</span></td>
-                            <td class="val">${b.mopBags.toFixed(2)}</td>
-                            <td class="val">${b.actualK.toFixed(1)} kg K</td>
-                            <td class="val">₹${b.mopCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-                        </tr>
-                        <tr style="border-top:1px solid var(--accent-border);">
-                            <td style="color:var(--linen);font-weight:600;">Total Spent</td>
-                            <td>—</td>
-                            <td>—</td>
-                            <td class="val" style="color:var(--linen);">₹${b.totalCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-                        </tr>
-                        <tr>
-                            <td style="color:var(--text-muted);">Balance Remaining</td>
-                            <td>—</td>
-                            <td>—</td>
-                            <td class="val" style="color:var(--sand-light);">₹${b.remaining.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
-                        </tr>
+                        <tr><td>🟡 Urea</td><td class="val">${b.ureaBags.toFixed(2)}</td><td class="val">${b.actualN.toFixed(1)} kg N</td><td class="val">₹${b.ureaCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
+                        <tr><td>🟤 DAP</td><td class="val">${b.dapBags.toFixed(2)}</td><td class="val">${b.actualP.toFixed(1)} kg P</td><td class="val">₹${b.dapCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
+                        <tr><td>🔴 MOP</td><td class="val">${b.mopBags.toFixed(2)}</td><td class="val">${b.actualK.toFixed(1)} kg K</td><td class="val">₹${b.mopCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
+                        <tr style="border-top:1px solid var(--accent-border);"><td style="color:var(--linen);font-weight:600;">Total Spent</td><td>—</td><td>—</td><td class="val" style="color:var(--linen);">₹${b.totalCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
+                        <tr><td style="color:var(--text-muted);">Balance Remaining</td><td>—</td><td>—</td><td class="val" style="color:var(--sand-light);">₹${b.remaining.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
                     </tbody>
                 </table>
-
                 <p style="font-size:0.78rem;color:var(--text-muted);margin-top:1rem;">
                     Budget coverage: <strong style="color:${barColor}">${b.coverage.toFixed(1)}%</strong> of agronomic need
                 </p>
-                <div class="coverage-bar-wrap">
-                    <div class="coverage-bar" style="width:${Math.min(b.coverage,100)}%;background:${barColor};"></div>
-                </div>
+                <div class="coverage-bar-wrap"><div class="coverage-bar" style="width:${Math.min(b.coverage,100)}%;background:${barColor};"></div></div>
                 <div class="budget-note ${b.noteClass}" style="margin-top:0.75rem;">${b.note}</div>
-                <p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.75rem;font-style:italic;">
-                    Prices: Urea ₹266/bag · DAP ₹1350/bag · MOP ₹1700/bag (50 kg bags, Indian retail 2024). Validate with your local dealer.
-                </p>
             `;
         } else {
             budgetCard.style.display = 'none';
@@ -959,6 +986,25 @@
         document.getElementById('budgetCard').style.display = 'none';
         resultsDiv.style.display = 'block';
     }
+
+    // ════════════════════════════════════════════════════════
+    // INIT
+    // ════════════════════════════════════════════════════════
+    document.addEventListener('DOMContentLoaded', function() {
+        updateSoilTypeOptions();
+        populateCountryDropdown();
+        setupWeatherSearch();
+        setupFertilizerForm();
+        updateNavAuth();
+
+        // Start Blynk polling: fetch immediately, then every 15 seconds
+        fetchBlynkSensors(false);
+        setInterval(() => fetchBlynkSensors(true), 15000);
+
+        const gotoPage = sessionStorage.getItem('gotoPage');
+        if (gotoPage) { sessionStorage.removeItem('gotoPage'); showPage(gotoPage); }
+    });
+
     </script>
 
 </body>
