@@ -455,7 +455,7 @@ async def blynk_readings():
                 r = await client.get(url)
                 r.raise_for_status()
                 val = r.text.strip()
-                results[field] = round(float(val), 2)
+                results[field] = int(round(float(val)))
             except Exception as e:
                 results[field] = None
                 results[f"{field}_error"] = str(e)
