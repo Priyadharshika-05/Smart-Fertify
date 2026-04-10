@@ -83,13 +83,27 @@
 
         <!-- ── Live Blynk Sensor Strip ──────────────────────────── -->
         <section class="sensor-strip container">
-            <!-- Header row with status indicator -->
+            <!-- Header row with status indicator + Connect/Disconnect -->
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.6rem;">
                 <p class="sensor-strip-label" style="margin:0;">Live Field Readings</p>
-                <div style="display:flex;align-items:center;gap:0.5rem;">
-                    <span id="blynkStatusDot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#555;transition:background 0.4s;"></span>
-                    <span id="blynkStatusText" style="font-family:var(--font-mono,monospace);font-size:0.72rem;color:#6b6a5c;">Connecting…</span>
-                    <span id="blynkLastFetchText" style="font-family:var(--font-mono,monospace);font-size:0.68rem;color:#4a4a42;margin-left:0.3rem;"></span>
+                <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+                    <span id="blynkStatusDot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#555;transition:background 0.4s;flex-shrink:0;"></span>
+                    <span id="blynkStatusText" style="font-family:var(--font-mono,monospace);font-size:0.72rem;color:#6b6a5c;">IoT Sensors not connected — try the Connect option</span>
+                    <span id="blynkLastFetchText" style="font-family:var(--font-mono,monospace);font-size:0.68rem;color:#4a4a42;"></span>
+                    <!-- Connect button (shown when disconnected) -->
+                    <button id="blynkConnectBtn" onclick="blynkConnect()"
+                        style="background:rgba(74,124,89,0.18);border:1px solid rgba(74,124,89,0.45);color:#5e9a70;padding:0.3rem 0.8rem;border-radius:5px;font-size:0.75rem;font-family:var(--font-mono,monospace);cursor:pointer;transition:background 0.2s;"
+                        onmouseover="this.style.background='rgba(74,124,89,0.30)'"
+                        onmouseout="this.style.background='rgba(74,124,89,0.18)'">
+                        Connect
+                    </button>
+                    <!-- Disconnect button (shown when connected) -->
+                    <button id="blynkDisconnectBtn" onclick="blynkDisconnect()"
+                        style="display:none;background:rgba(224,128,128,0.12);border:1px solid rgba(224,128,128,0.35);color:#e08080;padding:0.3rem 0.8rem;border-radius:5px;font-size:0.75rem;font-family:var(--font-mono,monospace);cursor:pointer;transition:background 0.2s;"
+                        onmouseover="this.style.background='rgba(224,128,128,0.25)'"
+                        onmouseout="this.style.background='rgba(224,128,128,0.12)'">
+                        Disconnect
+                    </button>
                 </div>
             </div>
 
@@ -138,7 +152,7 @@
                     <span>📡</span> Use Live Readings for Analysis
                 </button>
                 <p id="useLiveHint" style="font-size:0.72rem;color:#4a4a42;font-family:var(--font-mono,monospace);margin-top:0.4rem;">
-                    Waiting for sensor data…
+                    Press Connect above to fetch live IoT sensor data.
                 </p>
             </div>
         </section>
@@ -161,31 +175,40 @@
                 <p class="page-subtitle">Enter field parameters and get your precise fertilizer recommendation.</p>
             </div>
 
-            <!-- Blynk Live Readings Banner (shown when connected) -->
-            <div id="analysisBlynkBanner" style="display:none;margin-bottom:1.2rem;padding:0.9rem 1.2rem;background:rgba(74,124,89,0.10);border:1px solid rgba(74,124,89,0.30);border-radius:8px;">
+            <!-- Blynk IoT Status Banner (always shown on analysis page) -->
+            <div id="analysisBlynkBanner" style="margin-bottom:1.2rem;padding:0.9rem 1.2rem;background:rgba(57,70,49,0.25);border:1px solid rgba(221,212,199,0.10);border-radius:8px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;">
                     <div style="display:flex;align-items:center;gap:0.6rem;">
-                        <span id="analysisBannerDot" style="width:9px;height:9px;border-radius:50%;background:#4a7c59;display:inline-block;"></span>
-                        <span style="color:#5e9a70;font-family:var(--font-mono,monospace);font-size:0.8rem;font-weight:600;">Blynk IoT Connected</span>
+                        <span id="analysisBannerDot" style="width:9px;height:9px;border-radius:50%;background:#555;display:inline-block;flex-shrink:0;transition:background 0.4s;"></span>
+                        <span id="analysisBannerText" style="color:#6b6a5c;font-family:var(--font-mono,monospace);font-size:0.8rem;">IoT Sensors not connected</span>
                         <span id="analysisBannerTime" style="color:#4a4a42;font-size:0.72rem;font-family:var(--font-mono,monospace);"></span>
                     </div>
-                    <button type="button" onclick="refreshAndFillFromBlynk()"
-                        style="background:rgba(74,124,89,0.20);border:1px solid rgba(74,124,89,0.40);color:#5e9a70;padding:0.35rem 0.9rem;border-radius:5px;font-size:0.78rem;font-family:var(--font-mono,monospace);cursor:pointer;">
-                        ⟳ Refresh &amp; Fill
-                    </button>
+                    <div style="display:flex;gap:0.5rem;align-items:center;">
+                        <!-- Connect button (shown when disconnected) -->
+                        <button id="analysisBannerConnectBtn" onclick="blynkConnect()"
+                            style="background:rgba(74,124,89,0.18);border:1px solid rgba(74,124,89,0.45);color:#5e9a70;padding:0.35rem 0.9rem;border-radius:5px;font-size:0.78rem;font-family:var(--font-mono,monospace);cursor:pointer;">
+                            Connect
+                        </button>
+                        <!-- Refresh & Fill + Disconnect (shown when connected) -->
+                        <button id="analysisBannerRefreshBtn" onclick="refreshAndFillFromBlynk()"
+                            style="display:none;background:rgba(74,124,89,0.20);border:1px solid rgba(74,124,89,0.40);color:#5e9a70;padding:0.35rem 0.9rem;border-radius:5px;font-size:0.78rem;font-family:var(--font-mono,monospace);cursor:pointer;">
+                            ⟳ Refresh &amp; Fill
+                        </button>
+                        <button id="analysisBannerDisconnectBtn" onclick="blynkDisconnect()"
+                            style="display:none;background:rgba(224,128,128,0.12);border:1px solid rgba(224,128,128,0.35);color:#e08080;padding:0.35rem 0.9rem;border-radius:5px;font-size:0.78rem;font-family:var(--font-mono,monospace);cursor:pointer;">
+                            Disconnect
+                        </button>
+                    </div>
                 </div>
-                <!-- Mini sensor pills -->
-                <div style="margin-top:0.7rem;display:flex;gap:0.5rem;flex-wrap:wrap;" id="analysisSensorPills">
+                <!-- Mini sensor pills — shown only when connected -->
+                <div id="analysisSensorPills" style="margin-top:0.7rem;display:none;gap:0.5rem;flex-wrap:wrap;">
                     <span class="profile-pill">🌡 Temp: <span id="bannerTemp">--</span>°C</span>
                     <span class="profile-pill">💧 Moisture: <span id="bannerMoist">--</span>%</span>
                     <span class="profile-pill">🌫 Humidity: <span id="bannerHumid">--</span>%</span>
                 </div>
             </div>
 
-            <!-- Blynk Error Banner -->
-            <div id="analysisBlynkError" style="display:none;margin-bottom:1rem;padding:0.7rem 1rem;background:rgba(224,128,128,0.10);border:1px solid rgba(224,128,128,0.25);border-radius:7px;color:#e08080;font-size:0.8rem;font-family:var(--font-mono,monospace);">
-                ⚠ IoT sensor offline. Enter values manually below.
-            </div>
+            <!-- Removed separate error banner — merged into main banner above -->
 
             <!-- Calculator Card -->
             <div class="sf-card">
@@ -421,120 +444,169 @@
     <script>
 
     // ════════════════════════════════════════════════════════
-    // BLYNK IoT INTEGRATION
+    // BLYNK IoT INTEGRATION — Manual Connect / Disconnect
     // ════════════════════════════════════════════════════════
-    let _blynkLatest = null;          // last successful fetch payload
-    let _blynkPendingFill = false;    // flag: user clicked "Use Live Readings"
+    let _blynkLatest       = null;   // last successful fetch payload
+    let _blynkConnected    = false;  // true after user presses Connect
+    let _blynkPendingFill  = false;  // user clicked "Use Live Readings" before data arrived
+    let _blynkPollTimer    = null;   // setInterval handle
 
-    /**
-     * Fetches live sensor data from the backend Blynk proxy.
-     * Updates the home strip, analysis banner, and (if pending) fills the form.
-     */
-    async function fetchBlynkSensors(silent) {
+    // ── Public: called by Connect button ─────────────────────
+    async function blynkConnect() {
+        _setBlynkUI('connecting');
+        const ok = await fetchBlynkSensors();
+        if (ok) {
+            _blynkConnected = true;
+            _blynkPollTimer = setInterval(fetchBlynkSensors, 15000);
+        }
+    }
+
+    // ── Public: called by Disconnect button ──────────────────
+    function blynkDisconnect() {
+        _blynkConnected = false;
+        _blynkLatest    = null;
+        if (_blynkPollTimer) { clearInterval(_blynkPollTimer); _blynkPollTimer = null; }
+        _setBlynkUI('disconnected');
+        // Reset home sensor cards to placeholder
+        const tempEl  = document.getElementById('homeTemp');
+        const moistEl = document.getElementById('homeMoist');
+        const humidEl = document.getElementById('homeHumid');
+        if (tempEl)  tempEl.textContent  = '--°C';
+        if (moistEl) moistEl.textContent = '--%';
+        if (humidEl) humidEl.textContent = '--%';
+    }
+
+    // ── Core fetch ────────────────────────────────────────────
+    async function fetchBlynkSensors() {
         try {
             const resp = await fetch('/api/blynk-readings');
             const data = await resp.json();
-
             if (!resp.ok || !data.connected) {
-                _setBlynkOffline(data.temperature_error || data.moisture_error || data.humidity_error || 'Sensor offline');
+                _setBlynkUI('error', data.temperature_error || data.moisture_error || data.humidity_error || 'Sensor offline');
                 return false;
             }
-
             _blynkLatest = data;
-            _setBlynkOnline(data);
+            _setBlynkUI('connected', null, data);
 
-            // If user had clicked "Use Live Readings" before data arrived, fill now
             if (_blynkPendingFill) {
                 _blynkPendingFill = false;
                 _fillAnalysisForm(data);
             }
-
             return true;
         } catch (e) {
-            _setBlynkOffline('Network error');
+            _setBlynkUI('error', 'Network error');
             return false;
         }
     }
 
-    /** Updates home strip + status indicators with live data */
-    function _setBlynkOnline(data) {
-        // Status dot + text
+    // ── UI state machine ──────────────────────────────────────
+    // state: 'disconnected' | 'connecting' | 'connected' | 'error'
+    function _setBlynkUI(state, errMsg, data) {
+        // ── Home strip dots & text ──
         const dot  = document.getElementById('blynkStatusDot');
         const txt  = document.getElementById('blynkStatusText');
         const last = document.getElementById('blynkLastFetchText');
-        if (dot)  { dot.style.background = '#4a7c59'; dot.style.boxShadow = '0 0 6px #4a7c5988'; }
-        if (txt)  txt.textContent = 'Blynk Connected';
-        if (last) last.textContent = '· ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-
-        // Home sensor strip values
-        const tempEl  = document.getElementById('homeTemp');
-        const moistEl = document.getElementById('homeMoist');
-        const humidEl = document.getElementById('homeHumid');
-        if (tempEl)  tempEl.textContent  = (data.temperature != null ? data.temperature.toFixed(1) : '--') + '°C';
-        if (moistEl) moistEl.textContent = (data.moisture    != null ? data.moisture.toFixed(1)    : '--') + '%';
-        if (humidEl) humidEl.textContent = (data.humidity    != null ? data.humidity.toFixed(1)    : '--') + '%';
-
-        // Enable "Use Live Readings" button
+        const conBtn  = document.getElementById('blynkConnectBtn');
+        const disBtn  = document.getElementById('blynkDisconnectBtn');
         const liveBtn  = document.getElementById('useLiveReadingsBtn');
         const liveHint = document.getElementById('useLiveHint');
-        if (liveBtn)  liveBtn.disabled = false;
-        if (liveHint) liveHint.textContent = 'Sensor data is live. Click to auto-fill the analysis form.';
 
-        // Analysis page banner
-        const banner = document.getElementById('analysisBlynkBanner');
-        const errBanner = document.getElementById('analysisBlynkError');
-        if (banner) banner.style.display = 'block';
-        if (errBanner) errBanner.style.display = 'none';
+        // ── Analysis banner elements ──
+        const aDot     = document.getElementById('analysisBannerDot');
+        const aTxt     = document.getElementById('analysisBannerText');
+        const aTime    = document.getElementById('analysisBannerTime');
+        const aConBtn  = document.getElementById('analysisBannerConnectBtn');
+        const aRefBtn  = document.getElementById('analysisBannerRefreshBtn');
+        const aDisBtn  = document.getElementById('analysisBannerDisconnectBtn');
+        const aPills   = document.getElementById('analysisSensorPills');
 
-        const bannerDot  = document.getElementById('analysisBannerDot');
-        const bannerTime = document.getElementById('analysisBannerTime');
-        if (bannerDot)  bannerDot.style.background = '#4a7c59';
-        if (bannerTime) bannerTime.textContent = '· ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+        if (state === 'disconnected') {
+            if (dot)  { dot.style.background = '#555'; dot.style.boxShadow = 'none'; }
+            if (txt)  { txt.textContent = 'IoT Sensors not connected — try the Connect option'; txt.style.color = '#6b6a5c'; }
+            if (last) last.textContent = '';
+            if (conBtn)  conBtn.style.display = '';
+            if (disBtn)  disBtn.style.display = 'none';
+            if (liveBtn) liveBtn.disabled = true;
+            if (liveHint){ liveHint.textContent = 'Press Connect above to fetch live IoT sensor data.'; liveHint.style.color = '#4a4a42'; }
+            if (aDot)  { aDot.style.background = '#555'; aDot.style.boxShadow = 'none'; }
+            if (aTxt)  { aTxt.textContent = 'IoT Sensors not connected'; aTxt.style.color = '#6b6a5c'; }
+            if (aTime) aTime.textContent = '';
+            if (aConBtn)  aConBtn.style.display = '';
+            if (aRefBtn)  aRefBtn.style.display = 'none';
+            if (aDisBtn)  aDisBtn.style.display = 'none';
+            if (aPills)   aPills.style.display = 'none';
+        }
+        else if (state === 'connecting') {
+            if (dot)  { dot.style.background = '#cca878'; }
+            if (txt)  { txt.textContent = 'Connecting…'; txt.style.color = '#cca878'; }
+            if (conBtn)  conBtn.style.display = 'none';
+            if (aConBtn) aConBtn.style.display = 'none';
+        }
+        else if (state === 'connected') {
+            const now = new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            if (dot)  { dot.style.background = '#4a7c59'; dot.style.boxShadow = '0 0 6px #4a7c5988'; }
+            if (txt)  { txt.textContent = 'Blynk Connected'; txt.style.color = '#5e9a70'; }
+            if (last) last.textContent = '· ' + now;
+            if (conBtn)  conBtn.style.display = 'none';
+            if (disBtn)  disBtn.style.display = '';
+            if (liveBtn) liveBtn.disabled = false;
+            if (liveHint){ liveHint.textContent = 'Sensor data is live. Click to auto-fill the analysis form.'; liveHint.style.color = '#4a4a42'; }
 
-        const bTemp  = document.getElementById('bannerTemp');
-        const bMoist = document.getElementById('bannerMoist');
-        const bHumid = document.getElementById('bannerHumid');
-        if (bTemp)  bTemp.textContent  = data.temperature != null ? data.temperature.toFixed(1) : '--';
-        if (bMoist) bMoist.textContent = data.moisture    != null ? data.moisture.toFixed(1)    : '--';
-        if (bHumid) bHumid.textContent = data.humidity    != null ? data.humidity.toFixed(1)    : '--';
+            // Home sensor card values
+            const homeTemp  = document.getElementById('homeTemp');
+            const homeMoist = document.getElementById('homeMoist');
+            const homeHumid = document.getElementById('homeHumid');
+            if (data) {
+                if (homeTemp)  homeTemp.textContent  = (data.temperature != null ? data.temperature.toFixed(1) : '--') + '°C';
+                if (homeMoist) homeMoist.textContent = (data.moisture    != null ? data.moisture.toFixed(1)    : '--') + '%';
+                if (homeHumid) homeHumid.textContent = (data.humidity    != null ? data.humidity.toFixed(1)    : '--') + '%';
+            }
+
+            if (aDot)  { aDot.style.background = '#4a7c59'; aDot.style.boxShadow = '0 0 5px #4a7c5988'; }
+            if (aTxt)  { aTxt.textContent = 'Blynk IoT Connected'; aTxt.style.color = '#5e9a70'; }
+            if (aTime) aTime.textContent = '· ' + now;
+            if (aConBtn)  aConBtn.style.display = 'none';
+            if (aRefBtn)  aRefBtn.style.display = '';
+            if (aDisBtn)  aDisBtn.style.display = '';
+            if (aPills)   aPills.style.display = 'flex';
+            if (data) {
+                const bTemp  = document.getElementById('bannerTemp');
+                const bMoist = document.getElementById('bannerMoist');
+                const bHumid = document.getElementById('bannerHumid');
+                if (bTemp)  bTemp.textContent  = data.temperature != null ? data.temperature.toFixed(1) : '--';
+                if (bMoist) bMoist.textContent = data.moisture    != null ? data.moisture.toFixed(1)    : '--';
+                if (bHumid) bHumid.textContent = data.humidity    != null ? data.humidity.toFixed(1)    : '--';
+            }
+        }
+        else if (state === 'error') {
+            if (dot)  { dot.style.background = '#e08080'; dot.style.boxShadow = 'none'; }
+            if (txt)  { txt.textContent = '⚠ ' + (errMsg || 'Sensor error') + ' — try reconnecting'; txt.style.color = '#e08080'; }
+            if (last) last.textContent = '';
+            if (conBtn)  conBtn.style.display = '';
+            if (disBtn)  disBtn.style.display = 'none';
+            if (liveBtn) liveBtn.disabled = true;
+            if (liveHint){ liveHint.textContent = 'Sensor not reachable. Enter values manually.'; liveHint.style.color = '#e08080'; }
+            if (aDot)  { aDot.style.background = '#e08080'; }
+            if (aTxt)  { aTxt.textContent = '⚠ IoT Sensor offline — Enter values manually'; aTxt.style.color = '#e08080'; }
+            if (aConBtn)  aConBtn.style.display = '';
+            if (aRefBtn)  aRefBtn.style.display = 'none';
+            if (aDisBtn)  aDisBtn.style.display = 'none';
+            if (aPills)   aPills.style.display = 'none';
+        }
     }
 
-    /** Shows offline state across all Blynk UI */
-    function _setBlynkOffline(reason) {
-        const dot  = document.getElementById('blynkStatusDot');
-        const txt  = document.getElementById('blynkStatusText');
-        const last = document.getElementById('blynkLastFetchText');
-        if (dot)  { dot.style.background = '#e08080'; dot.style.boxShadow = 'none'; }
-        if (txt)  txt.textContent = 'Sensor Offline';
-        if (last) last.textContent = '';
-
-        const liveBtn  = document.getElementById('useLiveReadingsBtn');
-        const liveHint = document.getElementById('useLiveHint');
-        if (liveBtn)  liveBtn.disabled = true;
-        if (liveHint) { liveHint.textContent = 'IoT sensor not reachable. Enter values manually.'; liveHint.style.color = '#e08080'; }
-
-        const banner    = document.getElementById('analysisBlynkBanner');
-        const errBanner = document.getElementById('analysisBlynkError');
-        if (banner)    banner.style.display = 'none';
-        if (errBanner) errBanner.style.display = 'block';
-    }
-
-    /**
-     * Fills the three sensor inputs on the Analysis page with IoT data.
-     * Shows "IoT" badge next to each filled label.
-     */
+    // ── Fill analysis form with IoT values ───────────────────
     function _fillAnalysisForm(data) {
         const tempEl  = document.getElementById('temperature');
         const moistEl = document.getElementById('soilMoisture');
         const humidEl = document.getElementById('soilHumidity');
-
         if (tempEl  && data.temperature != null) { tempEl.value  = data.temperature.toFixed(1); _flashInput(tempEl); _showIotBadge('tempIotBadge'); }
         if (moistEl && data.moisture    != null) { moistEl.value = data.moisture.toFixed(1);    _flashInput(moistEl); _showIotBadge('moistIotBadge'); }
         if (humidEl && data.humidity    != null) { humidEl.value = data.humidity.toFixed(1);    _flashInput(humidEl); _showIotBadge('humidIotBadge'); }
     }
 
     function _flashInput(el) {
-        el.style.transition = 'border-color 0.3s, box-shadow 0.3s';
+        el.style.transition  = 'border-color 0.3s, box-shadow 0.3s';
         el.style.borderColor = 'rgba(74,124,89,0.8)';
         el.style.boxShadow   = '0 0 0 3px rgba(74,124,89,0.15)';
         setTimeout(() => { el.style.borderColor = ''; el.style.boxShadow = ''; }, 1800);
@@ -545,27 +617,25 @@
         if (b) b.style.display = 'inline';
     }
 
-    /**
-     * Called by "Use Live Readings for Analysis" button on home page.
-     * If data is ready → navigate + fill. Otherwise → navigate + set pending flag.
-     */
+    // ── "Use Live Readings for Analysis" (home page button) ──
     function useLiveReadingsForAnalysis() {
         showPage('analysis');
-        if (_blynkLatest && _blynkLatest.connected) {
+        if (_blynkLatest && _blynkConnected) {
             _fillAnalysisForm(_blynkLatest);
-        } else {
+        } else if (_blynkConnected) {
             _blynkPendingFill = true;
-            fetchBlynkSensors(false);
+            fetchBlynkSensors();
+        } else {
+            // Not connected — just navigate, show hint
+            _blynkPendingFill = true;
         }
     }
 
-    /**
-     * "Refresh & Fill" button on the analysis page banner.
-     */
+    // ── "Refresh & Fill" on analysis banner ──────────────────
     async function refreshAndFillFromBlynk() {
-        const btn = document.querySelector('#analysisBlynkBanner button');
+        const btn = document.getElementById('analysisBannerRefreshBtn');
         if (btn) { btn.textContent = '⟳ Fetching…'; btn.disabled = true; }
-        const ok = await fetchBlynkSensors(false);
+        const ok = await fetchBlynkSensors();
         if (ok && _blynkLatest) _fillAnalysisForm(_blynkLatest);
         if (btn) { btn.textContent = '⟳ Refresh & Fill'; btn.disabled = false; }
     }
@@ -581,15 +651,14 @@
         if (btn) btn.classList.add('active');
         window.scrollTo(0, 0);
         if (id === 'profile')  loadProfilePage();
-        if (id === 'analysis') _syncAnalysisBanner();
-    }
-
-    /** Keep analysis banner in sync when navigating to that page */
-    function _syncAnalysisBanner() {
-        if (_blynkLatest && _blynkLatest.connected) {
-            _setBlynkOnline(_blynkLatest);
-        } else {
-            fetchBlynkSensors(true);
+        if (id === 'analysis') {
+            // Sync analysis banner with current connection state
+            if (_blynkConnected && _blynkLatest) {
+                _setBlynkUI('connected', null, _blynkLatest);
+                if (_blynkPendingFill) { _blynkPendingFill = false; _fillAnalysisForm(_blynkLatest); }
+            } else {
+                _setBlynkUI('disconnected');
+            }
         }
     }
 
@@ -997,9 +1066,8 @@
         setupFertilizerForm();
         updateNavAuth();
 
-        // Start Blynk polling: fetch immediately, then every 15 seconds
-        fetchBlynkSensors(false);
-        setInterval(() => fetchBlynkSensors(true), 15000);
+        // Set initial disconnected UI (no auto-connect)
+        _setBlynkUI('disconnected');
 
         const gotoPage = sessionStorage.getItem('gotoPage');
         if (gotoPage) { sessionStorage.removeItem('gotoPage'); showPage(gotoPage); }

@@ -1275,6 +1275,7 @@ select:disabled { opacity: 0.4; cursor: not-allowed; }
   border-collapse: collapse;
   font-size: 0.85rem;
   margin-top: 0.5rem;
+  table-layout: fixed;
 }
 .budget-table th {
   font-family: var(--font-mono);
@@ -1287,17 +1288,21 @@ select:disabled { opacity: 0.4; cursor: not-allowed; }
   text-align: left;
   font-weight: 500;
 }
+.budget-table th:first-child { width: 42%; }
+.budget-table th:not(:first-child) { width: 19%; }
 .budget-table td {
   padding: 0.55rem 0.75rem;
   color: var(--text-body);
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  word-break: break-word;
 }
 .budget-table td.val {
   font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--linen);
   text-align: right;
+  white-space: nowrap;
 }
 .budget-table tr:last-child td { border-bottom: none; }
 .budget-table tr:hover td { background: var(--linen-dim); }
