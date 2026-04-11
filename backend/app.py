@@ -438,38 +438,63 @@ async def me(current_user=Depends(get_current_user)):
 # ─────────────────────────────────────────────────────────────────────────────
 # BLYNK IoT SENSOR PROXY ROUTE
 # ─────────────────────────────────────────────────────────────────────────────
+import asyncio as _asyncio
+
+def _parse_blynk_value(raw: str):
+    """
+    Parse a raw Blynk API response string into a float.
+    Handles: plain float "28.5", JSON array ["28.5"], JSON error {"error":{...}}.
+    Returns float on success, raises ValueError on failure.
+    """
+    raw = raw.strip()
+    # JSON array: ["28.5"]
+    if raw.startswith('['):
+        arr = json.loads(raw)
+        raw = str(arr[0]) if arr else raw
+    # JSON error object: {"error":{"message":"..."}}
+    if raw.startswith('{'):
+        obj = json.loads(raw)
+        msg = obj.get("error", {}).get("message", raw)
+        raise ValueError(f"Blynk error: {msg}")
+    return float(raw)
+
+
+async def _fetch_one_pin(client, token: str, field: str, pin: str) -> tuple:
+    """Fetch a single Blynk pin. Returns (field, value_or_None, error_or_None)."""
+    try:
+        url = f"https://blynk.cloud/external/api/get?token={token}&pin={pin}"
+        r = await client.get(url)
+        val = _parse_blynk_value(r.text)
+        return field, round(val, 2), None
+    except Exception as e:
+        return field, None, str(e)
+
+
 @api.get("/blynk-readings")
 async def blynk_readings():
     """
     Proxies Blynk IoT sensor data to avoid CORS issues from the browser.
+    Fetches all pins in PARALLEL for fast response (~1-2s when online).
     Returns temperature, moisture, humidity from the configured virtual pins.
     """
     if not BLYNK_TOKEN:
         return {"connected": False, "temperature": None, "moisture": None,
                 "humidity": None, "fetched_at": datetime.now(timezone.utc).isoformat()}
 
+    # Use a short timeout — if Blynk doesn't respond in 6s device is offline
+    async with httpx.AsyncClient(timeout=6, follow_redirects=True) as client:
+        # Fetch ALL pins in parallel — not sequential
+        tasks = [
+            _fetch_one_pin(client, BLYNK_TOKEN, field, pin)
+            for field, pin in BLYNK_PIN_MAP.items()
+        ]
+        pin_results = await _asyncio.gather(*tasks)
+
     results: dict = {}
-    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-        for field, pin in BLYNK_PIN_MAP.items():
-            r = None
-            try:
-                url = f"https://blynk.cloud/external/api/get?token={BLYNK_TOKEN}&pin={pin}"
-                r = await client.get(url)
-                raw = r.text.strip()
-
-                # Blynk sometimes returns a JSON array e.g. ["28.5"]
-                if raw.startswith('['):
-                    import json as _j
-                    arr = _j.loads(raw)
-                    raw = str(arr[0]) if arr else raw
-
-                # Blynk returns plain error strings (not HTTP errors) like "Invalid token"
-                val = float(raw)
-                results[field] = round(val, 2)
-            except Exception as e:
-                results[field] = None
-                raw_preview = r.text.strip()[:80] if r is not None else str(e)
-                results[f"{field}_error"] = raw_preview
+    for field, value, error in pin_results:
+        results[field] = value
+        if error:
+            results[f"{field}_error"] = error
 
     results["connected"] = all(
         isinstance(results.get(k), (int, float)) for k in BLYNK_PIN_MAP
@@ -481,16 +506,27 @@ async def blynk_readings():
 @api.get("/blynk-debug")
 async def blynk_debug():
     """Visit /api/blynk-debug to see raw Blynk responses for each pin."""
-    debug: dict = {"token_prefix": BLYNK_TOKEN[:8] + "..." if BLYNK_TOKEN else "NOT SET", "pins": {}}
-    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-        for field, pin in BLYNK_PIN_MAP.items():
-            try:
-                r = await client.get(
-                    f"https://blynk.cloud/external/api/get?token={BLYNK_TOKEN}&pin={pin}"
-                )
-                debug["pins"][field] = {"pin": pin, "status": r.status_code, "raw": r.text.strip()}
-            except Exception as e:
-                debug["pins"][field] = {"pin": pin, "error": str(e)}
+    debug: dict = {
+        "token_prefix": (BLYNK_TOKEN[:8] + "...") if BLYNK_TOKEN else "NOT SET",
+        "pins": {}
+    }
+    async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+        tasks = [
+            client.get(f"https://blynk.cloud/external/api/get?token={BLYNK_TOKEN}&pin={pin}")
+            for pin in BLYNK_PIN_MAP.values()
+        ]
+        responses = await _asyncio.gather(*tasks, return_exceptions=True)
+
+    for (field, pin), resp in zip(BLYNK_PIN_MAP.items(), responses):
+        if isinstance(resp, Exception):
+            debug["pins"][field] = {"pin": pin, "error": str(resp)}
+        else:
+            debug["pins"][field] = {
+                "pin": pin,
+                "status": resp.status_code,
+                "raw": resp.text.strip(),
+                "final_url": str(resp.url)
+            }
     return debug
 
 

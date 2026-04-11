@@ -431,6 +431,7 @@
 
     // ── Public: called by Disconnect button ──────────────────
     function blynkDisconnect() {
+        _backupMode     = false;
         _blynkConnected = false;
         _blynkLatest    = null;
         if (_blynkPollTimer) { clearInterval(_blynkPollTimer); _blynkPollTimer = null; }
@@ -446,6 +447,13 @@
 
     // ── Core fetch ────────────────────────────────────────────
     async function fetchBlynkSensors() {
+        // Backup mode: skip real API, use stored demo/last-known values
+        if (_backupMode) {
+            _backupData.fetched_at = new Date().toISOString();
+            _blynkLatest = _backupData;
+            _setBlynkUI('connected', null, _backupData);
+            return true;
+        }
         try {
             const resp = await fetch('/api/blynk-readings');
             const data = await resp.json();
@@ -639,24 +647,8 @@
         _setBlynkUI('connected', null, _backupData);
     }
 
-    // Override fetchBlynkSensors to skip real fetch in backup mode
-    const _realFetchBlynkSensors = fetchBlynkSensors;
-    async function fetchBlynkSensors() {
-        if (_backupMode) {
-            _backupData.fetched_at = new Date().toISOString();
-            _blynkLatest = _backupData;
-            _setBlynkUI('connected', null, _backupData);
-            return true;
-        }
-        return _realFetchBlynkSensors();
-    }
-
-    // Reset backup mode when disconnect is clicked
-    const _realBlynkDisconnect = blynkDisconnect;
-    function blynkDisconnect() {
-        _backupMode = false;
-        _realBlynkDisconnect();
-    }
+    // NOTE: _backupMode is checked inside fetchBlynkSensors and blynkDisconnect directly.
+    // Redefining those functions here would cause JS hoisting to create infinite loops.
 
     // PAGE ROUTING
     // ════════════════════════════════════════════════════════
