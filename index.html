@@ -221,14 +221,14 @@
                                     Temperature (°C)
                                     <span id="tempIotBadge" style="display:none;font-size:0.65rem;background:rgba(74,124,89,0.2);color:#5e9a70;padding:1px 6px;border-radius:4px;margin-left:4px;font-family:var(--font-mono,monospace);">IoT</span>
                                 </label>
-                                <input type="number" class="sf-input" id="temperature" placeholder="e.g. 25" required>
+                                <input type="number" class="sf-input" id="temperature" placeholder="e.g. 25.4" step="0.01" required>
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="sf-label">
                                     Soil Moisture (%)
                                     <span id="moistIotBadge" style="display:none;font-size:0.65rem;background:rgba(74,124,89,0.2);color:#5e9a70;padding:1px 6px;border-radius:4px;margin-left:4px;font-family:var(--font-mono,monospace);">IoT</span>
                                 </label>
-                                <input type="number" class="sf-input" id="soilMoisture" placeholder="e.g. 65" min="0" max="100" required>
+                                <input type="number" class="sf-input" id="soilMoisture" placeholder="e.g. 65.3" step="0.01" min="0" max="100" required>
                                 <div class="sf-hint">Enter value between 0–100</div>
                             </div>
                             <div class="col-md-4 mb-3">
@@ -236,7 +236,7 @@
                                     Soil Humidity (%)
                                     <span id="humidIotBadge" style="display:none;font-size:0.65rem;background:rgba(74,124,89,0.2);color:#5e9a70;padding:1px 6px;border-radius:4px;margin-left:4px;font-family:var(--font-mono,monospace);">IoT</span>
                                 </label>
-                                <input type="number" class="sf-input" id="soilHumidity" placeholder="e.g. 72" min="0" max="100" required>
+                                <input type="number" class="sf-input" id="soilHumidity" placeholder="e.g. 72.1" step="0.01" min="0" max="100" required>
                                 <div class="sf-hint">Air humidity over soil (0–100)</div>
                             </div>
                         </div>
