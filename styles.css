@@ -1270,12 +1270,19 @@ select:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 /* ── Budget Table (analysis results + profile history) ──── */
+.budget-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 0.5rem;
+  border-radius: var(--radius-sm);
+}
 .budget-table {
   width: 100%;
+  min-width: 480px;           /* prevents collapse on narrow screens */
   border-collapse: collapse;
   font-size: 0.85rem;
-  margin-top: 0.5rem;
-  table-layout: fixed;
+  table-layout: auto;         /* let columns size naturally to content */
 }
 .budget-table th {
   font-family: var(--font-mono);
@@ -1283,29 +1290,47 @@ select:disabled { opacity: 0.4; cursor: not-allowed; }
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  padding: 0.5rem 0.75rem;
+  padding: 0.55rem 1rem;
   border-bottom: 1px solid var(--border);
-  text-align: left;
   font-weight: 500;
+  white-space: nowrap;
 }
-.budget-table th:first-child { width: 42%; }
-.budget-table th:not(:first-child) { width: 19%; }
+/* col 1: fertilizer name — left-aligned */
+.budget-table th:first-child,
+.budget-table td:first-child {
+  text-align: left;
+  padding-left: 0.75rem;
+}
+/* cols 2–4: numeric — right-aligned, no wrapping */
+.budget-table th:not(:first-child),
+.budget-table td:not(:first-child) {
+  text-align: right;
+  padding-right: 1rem;
+  white-space: nowrap;
+}
 .budget-table td {
-  padding: 0.55rem 0.75rem;
+  padding: 0.55rem 1rem;
   color: var(--text-body);
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
-  word-break: break-word;
 }
+/* .val — numeric value cells (bold, lighter colour) */
 .budget-table td.val {
   font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--linen);
-  text-align: right;
-  white-space: nowrap;
+}
+/* dash placeholder cells in summary rows */
+.budget-table td.dash {
+  color: var(--text-muted);
+  font-size: 0.78rem;
 }
 .budget-table tr:last-child td { border-bottom: none; }
 .budget-table tr:hover td { background: var(--linen-dim); }
+/* summary rows (Total / Balance) */
+.budget-table tr.summary-row td:first-child {
+  font-weight: 600;
+}
 
 /* ── Coverage Bar (analysis results) ───────────────────── */
 .coverage-bar-wrap {

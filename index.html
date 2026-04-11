@@ -431,7 +431,6 @@
 
     // ── Public: called by Disconnect button ──────────────────
     function blynkDisconnect() {
-        _backupMode     = false;
         _blynkConnected = false;
         _blynkLatest    = null;
         if (_blynkPollTimer) { clearInterval(_blynkPollTimer); _blynkPollTimer = null; }
@@ -447,10 +446,6 @@
 
     // ── Core fetch ────────────────────────────────────────────
     async function fetchBlynkSensors() {
-        if (_backupMode && _blynkLatest) {
-            _setBlynkUI('connected', null, _blynkLatest);
-            return true;
-        }
         try {
             const resp = await fetch('/api/blynk-readings');
             const data = await resp.json();
@@ -530,9 +525,9 @@
             const homeMoist = document.getElementById('homeMoist');
             const homeHumid = document.getElementById('homeHumid');
             if (data) {
-                if (homeTemp)  homeTemp.textContent  = (data.temperature != null ? Math.round(data.temperature) : '--') + '°C';
-                if (homeMoist) homeMoist.textContent = (data.moisture    != null ? Math.round(data.moisture)    : '--') + '%';
-                if (homeHumid) homeHumid.textContent = (data.humidity    != null ? Math.round(data.humidity)    : '--') + '%';
+                if (homeTemp)  homeTemp.textContent  = (data.temperature != null ? data.temperature.toFixed(1) : '--') + '°C';
+                if (homeMoist) homeMoist.textContent = (data.moisture    != null ? data.moisture.toFixed(1)    : '--') + '%';
+                if (homeHumid) homeHumid.textContent = (data.humidity    != null ? data.humidity.toFixed(1)    : '--') + '%';
             }
 
             if (aDot)  { aDot.style.background = '#4a7c59'; aDot.style.boxShadow = '0 0 5px #4a7c5988'; }
@@ -546,9 +541,9 @@
                 const bTemp  = document.getElementById('bannerTemp');
                 const bMoist = document.getElementById('bannerMoist');
                 const bHumid = document.getElementById('bannerHumid');
-                if (bTemp)  bTemp.textContent  = data.temperature != null ? Math.round(data.temperature) : '--';
-                if (bMoist) bMoist.textContent = data.moisture    != null ? Math.round(data.moisture)    : '--';
-                if (bHumid) bHumid.textContent = data.humidity    != null ? Math.round(data.humidity)    : '--';
+                if (bTemp)  bTemp.textContent  = data.temperature != null ? data.temperature.toFixed(1) : '--';
+                if (bMoist) bMoist.textContent = data.moisture    != null ? data.moisture.toFixed(1)    : '--';
+                if (bHumid) bHumid.textContent = data.humidity    != null ? data.humidity.toFixed(1)    : '--';
             }
         }
         else if (state === 'error') {
@@ -573,9 +568,9 @@
         const tempEl  = document.getElementById('temperature');
         const moistEl = document.getElementById('soilMoisture');
         const humidEl = document.getElementById('soilHumidity');
-        if (tempEl  && data.temperature != null) { tempEl.value  = Math.round(data.temperature); _flashInput(tempEl); _showIotBadge('tempIotBadge'); }
-        if (moistEl && data.moisture    != null) { moistEl.value = Math.round(data.moisture);    _flashInput(moistEl); _showIotBadge('moistIotBadge'); }
-        if (humidEl && data.humidity    != null) { humidEl.value = Math.round(data.humidity);    _flashInput(humidEl); _showIotBadge('humidIotBadge'); }
+        if (tempEl  && data.temperature != null) { tempEl.value  = data.temperature.toFixed(1); _flashInput(tempEl); _showIotBadge('tempIotBadge'); }
+        if (moistEl && data.moisture    != null) { moistEl.value = data.moisture.toFixed(1);    _flashInput(moistEl); _showIotBadge('moistIotBadge'); }
+        if (humidEl && data.humidity    != null) { humidEl.value = data.humidity.toFixed(1);    _flashInput(humidEl); _showIotBadge('humidIotBadge'); }
     }
 
     function _flashInput(el) {
@@ -617,21 +612,50 @@
 
     // ── SECRET BACKUP MODE — double-click "Live Field Readings" label ──
     let _backupMode = false;
+    const _backupData = {
+        temperature: null,
+        moisture:    null,
+        humidity:    null,
+        connected:   true,
+        fetched_at:  null
+    };
 
     function blynkBackupMode() {
+        // Use last known real readings if available, otherwise use safe demo values
         const src = _blynkLatest || {};
-        const backupData = {
-            temperature: src.temperature ?? 28,
-            moisture:    src.moisture    ?? 65,
-            humidity:    src.humidity    ?? 72,
-            connected:   true,
-            fetched_at:  new Date().toISOString()
-        };
-        _backupMode     = true;
-        _blynkLatest    = backupData;
+        _backupData.temperature = src.temperature ?? 28;
+        _backupData.moisture    = src.moisture    ?? 65;
+        _backupData.humidity    = src.humidity    ?? 72;
+        _backupData.fetched_at  = new Date().toISOString();
+
+        _backupMode    = true;
+        _blynkLatest   = _backupData;
         _blynkConnected = true;
+
+        // Stop any real polling
         if (_blynkPollTimer) { clearInterval(_blynkPollTimer); _blynkPollTimer = null; }
-        _setBlynkUI('connected', null, backupData);
+
+        // Show as connected with last readings
+        _setBlynkUI('connected', null, _backupData);
+    }
+
+    // Override fetchBlynkSensors to skip real fetch in backup mode
+    const _realFetchBlynkSensors = fetchBlynkSensors;
+    async function fetchBlynkSensors() {
+        if (_backupMode) {
+            _backupData.fetched_at = new Date().toISOString();
+            _blynkLatest = _backupData;
+            _setBlynkUI('connected', null, _backupData);
+            return true;
+        }
+        return _realFetchBlynkSensors();
+    }
+
+    // Reset backup mode when disconnect is clicked
+    const _realBlynkDisconnect = blynkDisconnect;
+    function blynkDisconnect() {
+        _backupMode = false;
+        _realBlynkDisconnect();
     }
 
     // PAGE ROUTING
@@ -986,15 +1010,44 @@
                 <div class="npk-card"><div class="npk-element">Potassium (K)</div><div class="npk-value">${(d.potassium_kg||0).toFixed(1)}</div><div class="npk-unit">kg needed</div></div>
             </div>
             <p style="font-size:0.78rem;color:var(--text-muted);margin:1rem 0 0.4rem;">Full cost to meet this agronomic requirement:</p>
+            <div class="budget-table-wrap">
             <table class="budget-table">
-                <thead><tr><th>Fertilizer</th><th>Bags Required</th><th>Nutrient</th><th>Cost (₹)</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Fertilizer</th>
+                        <th>Bags Required</th>
+                        <th>Nutrient</th>
+                        <th>Cost (₹)</th>
+                    </tr>
+                </thead>
                 <tbody>
-                    <tr><td>🟡 Urea <span style="font-size:0.72rem;color:var(--text-muted)">(46% N · ₹266/bag)</span></td><td class="val">${agUreaBags.toFixed(2)}</td><td class="val">${(d.nitrogen_kg||0).toFixed(1)} kg N</td><td class="val">₹${agUreaCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
-                    <tr><td>🟤 DAP <span style="font-size:0.72rem;color:var(--text-muted)">(18% P · ₹1350/bag)</span></td><td class="val">${agDapBags.toFixed(2)}</td><td class="val">${(d.phosphorus_kg||0).toFixed(1)} kg P</td><td class="val">₹${agDapCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
-                    <tr><td>🔴 MOP <span style="font-size:0.72rem;color:var(--text-muted)">(60% K · ₹1700/bag)</span></td><td class="val">${agMopBags.toFixed(2)}</td><td class="val">${(d.potassium_kg||0).toFixed(1)} kg K</td><td class="val">₹${agMopCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
-                    <tr style="border-top:1px solid var(--accent-border);"><td style="color:var(--linen);font-weight:600;">Total Required</td><td>—</td><td>—</td><td class="val" style="color:var(--linen);font-size:1rem;">₹${agTotal.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
+                    <tr>
+                        <td>🟡 Urea <span style="font-size:0.72rem;color:var(--text-muted)">(46% N · ₹266/bag)</span></td>
+                        <td class="val">${agUreaBags.toFixed(2)}</td>
+                        <td class="val">${(d.nitrogen_kg||0).toFixed(1)} kg N</td>
+                        <td class="val">₹${agUreaCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                    </tr>
+                    <tr>
+                        <td>🟤 DAP <span style="font-size:0.72rem;color:var(--text-muted)">(18% P · ₹1350/bag)</span></td>
+                        <td class="val">${agDapBags.toFixed(2)}</td>
+                        <td class="val">${(d.phosphorus_kg||0).toFixed(1)} kg P</td>
+                        <td class="val">₹${agDapCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                    </tr>
+                    <tr>
+                        <td>🔴 MOP <span style="font-size:0.72rem;color:var(--text-muted)">(60% K · ₹1700/bag)</span></td>
+                        <td class="val">${agMopBags.toFixed(2)}</td>
+                        <td class="val">${(d.potassium_kg||0).toFixed(1)} kg K</td>
+                        <td class="val">₹${agMopCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                    </tr>
+                    <tr class="summary-row" style="border-top:1px solid var(--accent-border);">
+                        <td style="color:var(--linen);font-weight:600;">Total Required</td>
+                        <td class="dash">—</td>
+                        <td class="dash">—</td>
+                        <td class="val" style="color:var(--linen);font-size:1rem;">₹${agTotal.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                    </tr>
                 </tbody>
             </table>
+            </div>
             <div class="result-meta-row" style="margin-top:1rem;">
                 <span class="result-meta-pill">Model: <span>${d.model || 'RF'}</span></span>
                 <span class="result-meta-pill">Accuracy: <span>${d.holdout_accuracy ? (d.holdout_accuracy*100).toFixed(1)+'%' : 'N/A'}</span></span>
@@ -1013,16 +1066,50 @@
                 <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;">
                     How to spend <strong style="color:var(--linen)">₹${budgetVal.toLocaleString('en-IN')}</strong> to cover as much of the agronomic need as possible.
                 </p>
+                <div class="budget-table-wrap">
                 <table class="budget-table">
-                    <thead><tr><th>Fertilizer</th><th>Bags to Buy</th><th>Nutrient Delivered</th><th>Cost (₹)</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Fertilizer</th>
+                            <th>Bags to Buy</th>
+                            <th>Nutrient Delivered</th>
+                            <th>Cost (₹)</th>
+                        </tr>
+                    </thead>
                     <tbody>
-                        <tr><td>🟡 Urea</td><td class="val">${b.ureaBags.toFixed(2)}</td><td class="val">${b.actualN.toFixed(1)} kg N</td><td class="val">₹${b.ureaCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
-                        <tr><td>🟤 DAP</td><td class="val">${b.dapBags.toFixed(2)}</td><td class="val">${b.actualP.toFixed(1)} kg P</td><td class="val">₹${b.dapCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
-                        <tr><td>🔴 MOP</td><td class="val">${b.mopBags.toFixed(2)}</td><td class="val">${b.actualK.toFixed(1)} kg K</td><td class="val">₹${b.mopCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
-                        <tr style="border-top:1px solid var(--accent-border);"><td style="color:var(--linen);font-weight:600;">Total Spent</td><td>—</td><td>—</td><td class="val" style="color:var(--linen);">₹${b.totalCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
-                        <tr><td style="color:var(--text-muted);">Balance Remaining</td><td>—</td><td>—</td><td class="val" style="color:var(--sand-light);">₹${b.remaining.toLocaleString('en-IN',{maximumFractionDigits:0})}</td></tr>
+                        <tr>
+                            <td>🟡 Urea <span style="font-size:0.72rem;color:var(--text-muted)">(46% N · ₹266/bag)</span></td>
+                            <td class="val">${b.ureaBags.toFixed(2)}</td>
+                            <td class="val">${b.actualN.toFixed(1)} kg N</td>
+                            <td class="val">₹${b.ureaCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                        </tr>
+                        <tr>
+                            <td>🟤 DAP <span style="font-size:0.72rem;color:var(--text-muted)">(18% P · ₹1350/bag)</span></td>
+                            <td class="val">${b.dapBags.toFixed(2)}</td>
+                            <td class="val">${b.actualP.toFixed(1)} kg P</td>
+                            <td class="val">₹${b.dapCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                        </tr>
+                        <tr>
+                            <td>🔴 MOP <span style="font-size:0.72rem;color:var(--text-muted)">(60% K · ₹1700/bag)</span></td>
+                            <td class="val">${b.mopBags.toFixed(2)}</td>
+                            <td class="val">${b.actualK.toFixed(1)} kg K</td>
+                            <td class="val">₹${b.mopCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                        </tr>
+                        <tr class="summary-row" style="border-top:1px solid var(--accent-border);">
+                            <td style="color:var(--linen);font-weight:600;">Total Spent</td>
+                            <td class="dash">—</td>
+                            <td class="dash">—</td>
+                            <td class="val" style="color:var(--linen);">₹${b.totalCost.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                        </tr>
+                        <tr class="summary-row">
+                            <td style="color:var(--text-muted);">Balance Remaining</td>
+                            <td class="dash">—</td>
+                            <td class="dash">—</td>
+                            <td class="val" style="color:var(--sand-light);">₹${b.remaining.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                        </tr>
                     </tbody>
                 </table>
+                </div>
                 <p style="font-size:0.78rem;color:var(--text-muted);margin-top:1rem;">
                     Budget coverage: <strong style="color:${barColor}">${b.coverage.toFixed(1)}%</strong> of agronomic need
                 </p>
