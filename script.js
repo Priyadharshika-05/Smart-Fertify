@@ -262,7 +262,7 @@ function displayResults(mlData, budgetInr, inrPerUsd) {
         </div>
 
         <!-- Disclaimer -->
-        <p class="result-note">${escapeHtml(mlData.note || '')}</p>
+
     `;
 
     resultsDiv.innerHTML = html;
