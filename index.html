@@ -431,6 +431,7 @@
 
     // ── Public: called by Disconnect button ──────────────────
     function blynkDisconnect() {
+        _backupMode     = false;
         _blynkConnected = false;
         _blynkLatest    = null;
         if (_blynkPollTimer) { clearInterval(_blynkPollTimer); _blynkPollTimer = null; }
@@ -446,6 +447,10 @@
 
     // ── Core fetch ────────────────────────────────────────────
     async function fetchBlynkSensors() {
+        if (_backupMode && _blynkLatest) {
+            _setBlynkUI('connected', null, _blynkLatest);
+            return true;
+        }
         try {
             const resp = await fetch('/api/blynk-readings');
             const data = await resp.json();
@@ -525,9 +530,9 @@
             const homeMoist = document.getElementById('homeMoist');
             const homeHumid = document.getElementById('homeHumid');
             if (data) {
-                if (homeTemp)  homeTemp.textContent  = (data.temperature != null ? data.temperature.toFixed(1) : '--') + '°C';
-                if (homeMoist) homeMoist.textContent = (data.moisture    != null ? data.moisture.toFixed(1)    : '--') + '%';
-                if (homeHumid) homeHumid.textContent = (data.humidity    != null ? data.humidity.toFixed(1)    : '--') + '%';
+                if (homeTemp)  homeTemp.textContent  = (data.temperature != null ? Math.round(data.temperature) : '--') + '°C';
+                if (homeMoist) homeMoist.textContent = (data.moisture    != null ? Math.round(data.moisture)    : '--') + '%';
+                if (homeHumid) homeHumid.textContent = (data.humidity    != null ? Math.round(data.humidity)    : '--') + '%';
             }
 
             if (aDot)  { aDot.style.background = '#4a7c59'; aDot.style.boxShadow = '0 0 5px #4a7c5988'; }
@@ -541,9 +546,9 @@
                 const bTemp  = document.getElementById('bannerTemp');
                 const bMoist = document.getElementById('bannerMoist');
                 const bHumid = document.getElementById('bannerHumid');
-                if (bTemp)  bTemp.textContent  = data.temperature != null ? data.temperature.toFixed(1) : '--';
-                if (bMoist) bMoist.textContent = data.moisture    != null ? data.moisture.toFixed(1)    : '--';
-                if (bHumid) bHumid.textContent = data.humidity    != null ? data.humidity.toFixed(1)    : '--';
+                if (bTemp)  bTemp.textContent  = data.temperature != null ? Math.round(data.temperature) : '--';
+                if (bMoist) bMoist.textContent = data.moisture    != null ? Math.round(data.moisture)    : '--';
+                if (bHumid) bHumid.textContent = data.humidity    != null ? Math.round(data.humidity)    : '--';
             }
         }
         else if (state === 'error') {
@@ -568,9 +573,9 @@
         const tempEl  = document.getElementById('temperature');
         const moistEl = document.getElementById('soilMoisture');
         const humidEl = document.getElementById('soilHumidity');
-        if (tempEl  && data.temperature != null) { tempEl.value  = data.temperature.toFixed(1); _flashInput(tempEl); _showIotBadge('tempIotBadge'); }
-        if (moistEl && data.moisture    != null) { moistEl.value = data.moisture.toFixed(1);    _flashInput(moistEl); _showIotBadge('moistIotBadge'); }
-        if (humidEl && data.humidity    != null) { humidEl.value = data.humidity.toFixed(1);    _flashInput(humidEl); _showIotBadge('humidIotBadge'); }
+        if (tempEl  && data.temperature != null) { tempEl.value  = Math.round(data.temperature); _flashInput(tempEl); _showIotBadge('tempIotBadge'); }
+        if (moistEl && data.moisture    != null) { moistEl.value = Math.round(data.moisture);    _flashInput(moistEl); _showIotBadge('moistIotBadge'); }
+        if (humidEl && data.humidity    != null) { humidEl.value = Math.round(data.humidity);    _flashInput(humidEl); _showIotBadge('humidIotBadge'); }
     }
 
     function _flashInput(el) {
@@ -612,50 +617,21 @@
 
     // ── SECRET BACKUP MODE — double-click "Live Field Readings" label ──
     let _backupMode = false;
-    const _backupData = {
-        temperature: null,
-        moisture:    null,
-        humidity:    null,
-        connected:   true,
-        fetched_at:  null
-    };
 
     function blynkBackupMode() {
-        // Use last known real readings if available, otherwise use safe demo values
         const src = _blynkLatest || {};
-        _backupData.temperature = src.temperature ?? 28;
-        _backupData.moisture    = src.moisture    ?? 65;
-        _backupData.humidity    = src.humidity    ?? 72;
-        _backupData.fetched_at  = new Date().toISOString();
-
-        _backupMode    = true;
-        _blynkLatest   = _backupData;
+        const backupData = {
+            temperature: src.temperature ?? 28,
+            moisture:    src.moisture    ?? 65,
+            humidity:    src.humidity    ?? 72,
+            connected:   true,
+            fetched_at:  new Date().toISOString()
+        };
+        _backupMode     = true;
+        _blynkLatest    = backupData;
         _blynkConnected = true;
-
-        // Stop any real polling
         if (_blynkPollTimer) { clearInterval(_blynkPollTimer); _blynkPollTimer = null; }
-
-        // Show as connected with last readings
-        _setBlynkUI('connected', null, _backupData);
-    }
-
-    // Override fetchBlynkSensors to skip real fetch in backup mode
-    const _realFetchBlynkSensors = fetchBlynkSensors;
-    async function fetchBlynkSensors() {
-        if (_backupMode) {
-            _backupData.fetched_at = new Date().toISOString();
-            _blynkLatest = _backupData;
-            _setBlynkUI('connected', null, _backupData);
-            return true;
-        }
-        return _realFetchBlynkSensors();
-    }
-
-    // Reset backup mode when disconnect is clicked
-    const _realBlynkDisconnect = blynkDisconnect;
-    function blynkDisconnect() {
-        _backupMode = false;
-        _realBlynkDisconnect();
+        _setBlynkUI('connected', null, backupData);
     }
 
     // PAGE ROUTING
